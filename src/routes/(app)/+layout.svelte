@@ -19,7 +19,7 @@
 	import { getBanners } from '$lib/apis/configs';
 	import { getUserSettings } from '$lib/apis/users';
 
-	import { WEBUI_VERSION } from '$lib/constants';
+	import { WEBUI_VERSION, getPolychatAppUrl } from '$lib/constants';
 	import { compareVersion } from '$lib/utils';
 
 	import {
@@ -53,9 +53,30 @@
 	let version;
 
 	onMount(async () => {
-		if ($user === undefined) {
-			await goto('/auth');
+		if ($user === undefined && $page.url.pathname !== '/pricing' && !$page.url.pathname.startsWith('/legal/')) {
+			await goto('/h');
 		} else if (['user', 'admin'].includes($user.role)) {
+			// Set the token cookie for Polychat app
+			if (localStorage.token) {
+				try {
+					// Make a background fetch request to set the cookie
+					fetch(`${getPolychatAppUrl()}/set-cookie`, {
+						method: 'POST',
+						mode: 'cors',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							token: localStorage.token
+						}),
+					}).catch(error => {
+						console.error('Failed to set cookie:', error);
+					});
+				} catch (error) {
+					console.error('Error setting token cookie:', error);
+				}
+			}
+
 			try {
 				// Check if IndexedDB exists
 				DB = await openDB('Chats', 1);

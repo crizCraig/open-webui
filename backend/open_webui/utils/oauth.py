@@ -40,6 +40,7 @@ from open_webui.env import (
     WEBUI_NAME,
     WEBUI_AUTH_COOKIE_SAME_SITE,
     WEBUI_AUTH_COOKIE_SECURE,
+    WEBUI_SESSION_COOKIE_DOMAIN,
 )
 from open_webui.utils.misc import parse_duration
 from open_webui.utils.auth import get_password_hash, create_token
@@ -414,6 +415,7 @@ class OAuthManager:
             httponly=True,  # Ensures the cookie is not accessible via JavaScript
             samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
             secure=WEBUI_AUTH_COOKIE_SECURE,
+            domain=WEBUI_SESSION_COOKIE_DOMAIN,
         )
 
         if ENABLE_OAUTH_SIGNUP.value:
@@ -424,6 +426,7 @@ class OAuthManager:
                 httponly=True,
                 samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
                 secure=WEBUI_AUTH_COOKIE_SECURE,
+                # domain not needed as we don't need to share oauth cookies across subdomains
             )
         # Redirect back to the frontend with the JWT token
         redirect_url = f"{request.base_url}auth#token={jwt_token}"

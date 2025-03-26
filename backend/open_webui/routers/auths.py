@@ -27,6 +27,7 @@ from open_webui.env import (
     WEBUI_AUTH_TRUSTED_NAME_HEADER,
     WEBUI_AUTH_COOKIE_SAME_SITE,
     WEBUI_AUTH_COOKIE_SECURE,
+    WEBUI_SESSION_COOKIE_DOMAIN,
     SRC_LOG_LEVELS,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -96,6 +97,7 @@ async def get_session_user(
         httponly=True,  # Ensures the cookie is not accessible via JavaScript
         samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
         secure=WEBUI_AUTH_COOKIE_SECURE,
+        domain=WEBUI_SESSION_COOKIE_DOMAIN,
     )
 
     user_permissions = get_permissions(
@@ -392,6 +394,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             httponly=True,  # Ensures the cookie is not accessible via JavaScript
             samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
             secure=WEBUI_AUTH_COOKIE_SECURE,
+            domain=WEBUI_SESSION_COOKIE_DOMAIN,
         )
 
         user_permissions = get_permissions(
@@ -425,11 +428,13 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
         if (
             not request.app.state.config.ENABLE_SIGNUP
             or not request.app.state.config.ENABLE_LOGIN_FORM
+            or not request.app.state.config.ENABLE_PASSWORD_SIGNUPS
         ):
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
             )
     else:
+        # If no auth, disallow signups unless their the first (admin) user
         if Users.get_num_users() != 0:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
@@ -487,6 +492,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
                 httponly=True,  # Ensures the cookie is not accessible via JavaScript
                 samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
                 secure=WEBUI_AUTH_COOKIE_SECURE,
+                domain=WEBUI_SESSION_COOKIE_DOMAIN,
             )
 
             if request.app.state.config.WEBHOOK_URL:

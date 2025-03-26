@@ -13,6 +13,15 @@ export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/audio`;
 export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/images`;
 export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
 
+import { get } from 'svelte/store';
+import { config } from '$lib/stores';
+
+// Helper function that will pull the URL from the config store or use a default
+export function getPolychatAppUrl() {
+  const configValue = get(config);
+  return configValue?.polychat_app_url || 'https://app.polychat.co';
+}
+
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
 export const REQUIRED_OLLAMA_VERSION = '0.1.16';
