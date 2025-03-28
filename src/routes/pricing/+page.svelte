@@ -538,7 +538,11 @@
        </div>
        <div class="bg-[#1e212e] p-6 rounded-lg">
         <h3 class="text-xl font-medium text-white mb-2">When do messages/day reset?</h3>
-        <p class="text-gray-300">Messages per day are calculated as a rolling average over the last 14 days. So you will get new messages each day depending on the last 14 days of usage. Doing this allows you to be bursty and use more messages on a given day, provided you've used fewer than the limit in the 14 days previous.</p>
+        <p class="text-gray-300">Messages per day are calculated as a rolling average over the last 14 days. So you will get new messages each day depending on the last 14 days of usage. Doing this allows you to be bursty and use more messages on a given day, provided you've used fewer than the limit in the 14 days previous. For example, you get 4 avg. messages per day for free. It's the daily average over the last 2 weeks (14 days), so you can also think of it as 14 * 4 = 56 messages every two weeks for free. Where you can use as many messages of that 56 as you want on any given day.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Do tokens used by free models count towards anything?</h3>
+        <p class="text-gray-300">No, the tokens won't count towards anything but messages still will.</p>
        </div>
       </div>
      </div>
