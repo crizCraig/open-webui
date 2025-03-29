@@ -43,15 +43,15 @@
                         Plans start at just $5/mo
                     </p>
                     <div>
-                        <div class="flex gap-4">
-                            <a href="/auth" class="group relative inline-flex px-8 py-4 text-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg font-semibold transition-all duration-500 overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+                        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                            <a href="/auth" class="w-full sm:w-auto group relative inline-flex justify-center px-8 py-4 text-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg font-semibold transition-all duration-500 overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]">
                                 <span class="relative z-10">Try for Free</span>
                                 <div class="absolute inset-0 bg-gradient-to-r from-emerald-400/50 to-emerald-300/50 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500 ease-out"></div>
                             </a>
-                            <a href="/pricing" class="group relative inline-flex px-8 py-4 text-lg bg-[#161922] hover:bg-[#1e2230] text-white rounded-lg font-semibold transition-all duration-300 border border-gray-700">
+                            <a href="/pricing" class="w-full sm:w-auto group relative inline-flex justify-center px-8 py-4 text-lg bg-[#161922] hover:bg-[#1e2230] text-white rounded-lg font-semibold transition-all duration-300 border border-gray-700">
                                 <span class="relative z-10">View Pricing</span>
                             </a>
-                            <a href="/auth" class="group relative inline-flex px-8 py-4 text-lg bg-[#161922] hover:bg-[#1e2230] text-white rounded-lg font-semibold transition-all duration-300 border border-gray-700">
+                            <a href="/auth" class="w-full sm:w-auto group relative inline-flex justify-center px-8 py-4 text-lg bg-[#161922] hover:bg-[#1e2230] text-white rounded-lg font-semibold transition-all duration-300 border border-gray-700">
                                 <span class="relative z-10">Login</span>
                             </a>
                         </div>
