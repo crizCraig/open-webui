@@ -519,6 +519,7 @@
 					// Needed because we pass in tokens from OAuth logins via URL fragments
 					if ($page.url.pathname !== '/auth' &&
 					    $page.url.pathname !== '/pricing' &&
+					    $page.url.pathname !== '/chatgpt-alternative' &&
 					    !$page.url.pathname.startsWith('/legal/')) {
 						await goto('/h');
 					}

@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="en">
 	<head>
+		<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-THECKPXW01"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+
+			gtag('config', 'G-THECKPXW01');
+		</script>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/png" href="/static/favicon.png" />
 		<link rel="icon" type="image/png" href="/static/favicon-96x96.png" sizes="96x96" />
@@ -126,9 +135,18 @@
 			id="splash-screen"
 			style="position: fixed; z-index: 100; top: 0; left: 0; width: 100%; height: 100%"
 		>
+			<script>
+				// Immediately hide splash screen for chatgpt-alternative page
+				if (window.location.pathname.includes('/chatgpt-alternative') || 
+				    window.location.pathname.includes('/h') || 
+				    window.location.pathname.includes('/pricing') || 
+				    window.location.pathname.includes('/legal')) {
+					document.getElementById('splash-screen').style.display = 'none';
+				}
+			</script>
 			<style type="text/css" nonce="">
 				html {
-					overflow-y: scroll !important;
+					overflow-y: auto !important;
 				}
 			</style>
 
