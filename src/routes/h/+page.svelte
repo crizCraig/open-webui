@@ -1,6 +1,59 @@
 <script lang="ts">
     import { getContext } from 'svelte';
     const i18n = getContext('i18n');
+    import { onMount } from 'svelte';
+    
+    onMount(() => {
+        setTimeout(() => {
+            const video = document.getElementById('polychat-video') as HTMLVideoElement;
+            const playButton = document.getElementById('custom-play-button');
+            
+            if (video && playButton) {
+                // Handle play button clicks
+                playButton.addEventListener('click', () => {
+                    if (video.paused) {
+                        // Start playing but keep muted by default
+                        video.play();
+                        playButton.style.opacity = '0';
+                    } else {
+                        video.pause();
+                        playButton.style.opacity = '1';
+                    }
+                });
+                
+                // Add mute toggle button functionality
+                const muteButton = document.getElementById('mute-toggle-button');
+                const mutedIcon = document.querySelector('.muted-icon');
+                const unmutedIcon = document.querySelector('.unmuted-icon');
+                
+                if (muteButton && mutedIcon && unmutedIcon) {
+                    // Initially show muted icon since video starts muted
+                    mutedIcon.classList.remove('hidden');
+                    unmutedIcon.classList.add('hidden');
+                    
+                    muteButton.addEventListener('click', () => {
+                        video.muted = !video.muted;
+                        if (video.muted) {
+                            mutedIcon.classList.remove('hidden');
+                            unmutedIcon.classList.add('hidden');
+                        } else {
+                            mutedIcon.classList.add('hidden');
+                            unmutedIcon.classList.remove('hidden');
+                        }
+                    });
+                }
+                
+                // Add video pause/play events to show/hide play button
+                video.addEventListener('pause', () => {
+                    playButton.style.opacity = '1';
+                });
+                
+                video.addEventListener('play', () => {
+                    playButton.style.opacity = '0';
+                });
+            }
+        }, 500);
+    });
 </script>
 
 <div class="h-screen overflow-auto">
@@ -67,12 +120,35 @@
             <div class="transform hover:scale-[1.01] transition-transform duration-300">
                 <div class="rounded-xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.3)] bg-gray-800">
                     <div class="relative pt-[56.25%]">
-                        <iframe
-                            src="https://www.youtube.com/embed/pPKNlcX1Dy8"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen
+                        <video
+                            id="polychat-video"
+                            src="https://storage.googleapis.com/polychat_public/polychat-home.mp4"
+                            poster="/static/polychat.co-frame.jpg"
+                            muted
+                            controls
+                            loop
+                            playsinline
                             class="absolute top-0 left-0 w-full h-full"
-                        ></iframe>
+                        ></video>
+                        <div id="custom-play-button" class="absolute inset-0 flex items-center justify-center cursor-pointer group">
+                            <div class="w-20 h-20 rounded-full bg-emerald-500/80 group-hover:bg-emerald-400 flex items-center justify-center transition-all transform group-hover:scale-110 shadow-[0_0_30px_rgba(16,185,129,0.5)]">
+                                <div class="w-0 h-0 border-y-[15px] border-y-transparent border-l-[25px] border-l-white ml-2"></div>
+                            </div>
+                        </div>
+                        <div id="mute-toggle-button" class="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-emerald-500/80 hover:bg-emerald-400 flex items-center justify-center cursor-pointer transition-all shadow-lg">
+                            <div class="volume-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white muted-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                    <line x1="23" y1="9" x2="17" y2="15" />
+                                    <line x1="17" y1="9" x2="23" y2="15" />
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white unmuted-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
