@@ -278,6 +278,10 @@ def calculate_sha256_string(string):
 
 
 def validate_email_format(email: str) -> bool:
+    # Reject qwiklabs.net emails
+    if email.lower().endswith("@qwiklabs.net"):
+        return False
+        
     if email.endswith("@localhost"):
         return True
 
