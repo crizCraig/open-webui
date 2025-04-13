@@ -230,14 +230,14 @@
     <footer class="bg-[#0f1117] py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-center space-x-6 text-gray-400">
-                <a href="mailto:support@polychat.com" class="text-lg hover:text-gray-300 transition-colors">
+                <a href="mailto:support@polychat.co" class="text-lg hover:text-gray-300 transition-colors">
                     Contact Us
                 </a>
                 <a href="/legal/privacy" class="text-lg hover:text-gray-300 transition-colors">
                     Privacy Policy
                 </a>
                 <a href="/legal/refund" class="text-lg hover:text-gray-300 transition-colors">
-                    Refund & Dispute Policy
+                    Refunds
                 </a>
             </div>
         </div>

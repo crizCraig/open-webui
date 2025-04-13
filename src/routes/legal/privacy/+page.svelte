@@ -107,7 +107,7 @@
                         {$i18n.t('If you have any privacy-related questions or requests, please contact our support team at:')}
                     </p>
                     <p class="mt-4 font-medium">
-                        📧 <a href="mailto:support@polychat.com" class="text-yellow-600 hover:underline">support@polychat.com</a>
+                        📧 <a href="mailto:support@polychat.co" class="text-yellow-600 hover:underline">support@polychat.co</a>
                     </p>
                     <p class="mt-4">
                         {$i18n.t('We are committed to keeping your data secure and respecting your privacy.')}

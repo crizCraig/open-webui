@@ -578,7 +578,7 @@
         Privacy Policy
        </a>
        <a href="/legal/refund" class="text-lg hover:text-gray-300 transition-colors">
-        Refund & Dispute Policy
+        Refunds
        </a>
       </div>
      </div>

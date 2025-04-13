@@ -6,7 +6,7 @@
 
 <svelte:head>
     <title>
-        {$i18n.t('Refund & Dispute Policy')} | {$WEBUI_NAME}
+        {$i18n.t('Refunds')} | {$WEBUI_NAME}
     </title>
 </svelte:head>
 
@@ -15,7 +15,7 @@
         <div class="max-w-3xl mx-auto">
             <div class="text-gray-700 dark:text-gray-100">
                 <div class="text-3xl font-semibold">
-                    {$i18n.t('Refund & Dispute Policy')}
+                    {$i18n.t('Refunds')}
                 </div>
 
                 <hr class="dark:border-gray-800 mt-6 mb-6" />
