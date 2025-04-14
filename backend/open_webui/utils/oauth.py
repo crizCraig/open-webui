@@ -287,9 +287,14 @@ class OAuthManager:
                 log.warning(f"OAuth callback failed, email is missing: {user_data}")
                 raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
         email = email.lower()
+        domain = email.split("@")[-1]
+        # Block qwiklabs.net domains
+        if domain.endswith("qwiklabs.net"):
+            log.warning(f"OAuth callback failed, this domain is not allowed: {user_data}")
+            raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
         if (
             "*" not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
-            and email.split("@")[-1] not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
+            and domain not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
         ):
             log.warning(
                 f"OAuth callback failed, e-mail domain is not in the list of allowed domains: {user_data}"
