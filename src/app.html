@@ -27,18 +27,19 @@
 		<meta property="og:title" content="PolyChat - Chat with multiple LLMs" />
 		<meta property="og:description" content="Combine the world's most powerful LLMs. OpenAI, Anthropic, Perplexity, Google, DeepSeek, LLama, and more." />
 		<meta property="og:type" content="website" />
-		<meta property="og:image" content="/static/og-image.png" />
+		<meta property="og:image" content="https://polychat.co/static/og-image.png" />
 		<meta property="og:url" content="https://polychat.co" />
 		
 		<!-- X Card tags -->
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content="PolyChat - Chat with multiple LLMs" />
 		<meta name="twitter:description" content="Combine the world's most powerful LLMs. OpenAI, Anthropic, Perplexity, Google, DeepSeek, LLama, and more." />
-		<meta name="twitter:image" content="/static/og-image.png" />
+		<meta name="twitter:image" content="https://polychat.co/static/og-image.png" />
 		<meta name="keywords" content="LLM, AI Chat, OpenAI, Anthropic, Claude, ChatGPT, Perplexity, Google, DeepSeek, LLama, AI Assistant" />
 		<meta name="author" content="PolyChat" />
 		<meta name="robots" content="index, follow" />
 		<link rel="canonical" href="https://polychat.co" />
+		<link rel="preload" href="/static/polychat.co-frame.jpg" as="image">
 <!--		<link-->
 <!--			rel="search"-->
 <!--			type="application/opensearchdescription+xml"-->
@@ -121,6 +122,31 @@
 				// Runs after classes are assigned
 				window.onload = setSplashImage;
 			})();
+		</script>
+
+		<!-- datadog -->
+		<script>
+			(function(h,o,u,n,d) {
+			h=h[d]=h[d]||{q:[],onReady:function(c){h.q.push(c)}}
+			d=o.createElement(u);d.async=1;d.src=n
+			n=o.getElementsByTagName(u)[0];n.parentNode.insertBefore(d,n)
+			})(window,document,'script','https://www.datadoghq-browser-agent.com/us5/v6/datadog-rum.js','DD_RUM')
+			window.DD_RUM.onReady(function() {
+			window.DD_RUM.init({
+				clientToken: 'pub82027b8ee6e268eaa514929e1cd267f8',
+				applicationId: 'ccd6feb1-8ee6-406e-ad37-c54dff099b68',
+				// `site` refers to the Datadog site parameter of your organization
+				// see https://docs.datadoghq.com/getting_started/site/
+				site: 'us5.datadoghq.com',
+				service: 'polychat',
+				env: 'production',
+				// Specify a version number to identify the deployed version of your application in Datadog
+				// version: '1.0.0',
+				sessionSampleRate: 100,
+				sessionReplaySampleRate: 20,
+				defaultPrivacyLevel: 'mask-user-input',
+			});
+			})
 		</script>
 
 		<title>PolyChat</title>

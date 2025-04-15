@@ -230,7 +230,13 @@ class OAuthManager:
             raise HTTPException(404)
         client = self.get_client(provider)
         try:
-            token = await client.authorize_access_token(request)
+            try:
+                incoming_state = request.query_params.get("state")
+                log.debug(f"OAuth incoming state: {incoming_state}")
+                token = await client.authorize_access_token(request)
+            except Exception as e:
+                incoming_state = request.query_params.get("state")
+                log.warning(f"OAuth access token error: {e}, incoming state: {incoming_state}")
         except Exception as e:
             log.warning(f"OAuth callback error: {e}")
             raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)

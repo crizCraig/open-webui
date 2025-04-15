@@ -101,7 +101,21 @@
                     </ul>
 
                     <h2 class="text-xl font-semibold mt-4">
-                        {$i18n.t('7. Contact Us')}
+                        {$i18n.t('7. Analytics and Monitoring')}
+                    </h2>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>{$i18n.t('We use Datadog for application performance monitoring and system analytics to ensure service reliability.')}</li>
+                        <li>{$i18n.t('We use Google Analytics to understand user behavior and improve our service.')}</li>
+                        <li>{$i18n.t('These services may collect information such as your IP address, browser type, device information, and usage patterns.')}</li>
+                        <li>{$i18n.t('You can learn more about how these services process your data by reviewing their respective privacy policies:')}</li>
+                        <ul class="list-disc pl-5 mt-2">
+                            <li><a href="https://www.datadoghq.com/legal/privacy/" class="text-yellow-600 hover:underline" target="_blank" rel="noopener noreferrer">{$i18n.t('Datadog Privacy Policy')}</a></li>
+                            <li><a href="https://policies.google.com/privacy" class="text-yellow-600 hover:underline" target="_blank" rel="noopener noreferrer">{$i18n.t('Google Privacy Policy')}</a></li>
+                        </ul>
+                    </ul>
+
+                    <h2 class="text-xl font-semibold mt-4">
+                        {$i18n.t('8. Contact Us')}
                     </h2>
                     <p>
                         {$i18n.t('If you have any privacy-related questions or requests, please contact our support team at:')}

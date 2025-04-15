@@ -108,73 +108,20 @@
 </script>
 
 <svelte:head>
-    
-    <title>ChatGPT Alternative</title>
-    <meta name="description" content="ChatGPT Alternative - All ChatGPT alternatives in one place with PolyChat." />
-    <style>
-        /* Force hide splash screen with CSS */
-        /* #splash-screen {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            z-index: -9999 !important;
-        } */
-        
-        /* Ensure content is visible */
-        body > div {
-            display: block !important;
-        }
-        
-        /* Set dark theme */
-        html, body {
-            background-color: #0f1117;
-            color: white;
-            overflow-y: auto !important;
-            height: auto !important;
-            position: relative !important;
-        }
-        
-        :global(html) {
-            overflow-y: auto !important;
-        }
-
-				html {
-						overflow-y: auto !important;
-						height: auto !important;
-						position: relative !important;
-				}
-				
-				body {
-						min-height: 100% !important;
-				}
-    </style>
-    
-    <!-- Script to run immediately when head is parsed -->
-    <script>
-        // Immediately remove splash screen
-        // document.getElementById('splash-screen')?.remove();
-        
-        // Set loaded state to bypass layout waiting
-        window.loaded = true;
-        
-        // Create a style element to override the global overflow styles
-        const style = document.createElement('style');
-        style.innerHTML = `
-            html { overflow-y: auto !important; height: auto !important; position: relative !important; }
-            body { overflow-y: auto !important; height: auto !important; position: relative !important; }
-            #app { overflow-y: auto !important; height: auto !important; position: relative !important; }
-            .overflow-fix { overflow: unset !important; }
-        `;
-        document.head.appendChild(style);
-        
-        // Also set inline styles as a fallback
-        document.documentElement.style.overflow = 'auto !important';
-        document.body.style.overflow = 'auto !important';
-        document.documentElement.style.position = 'relative';
-        document.body.style.position = 'relative';
-        document.documentElement.style.height = 'auto';
-        document.body.style.height = 'auto';
-    </script>
+    <title>ChatGPT Alternative - PolyChat</title>
+    <meta name="description" content="Looking for something similar to ChatGPT from OpenAI? Try the PolyChat ChatGPT Alternative! Access GPT-4.5, Claude 3.5, Gemini 2.5 Pro and more. Note that PolyChat has no affiliation with OpenAI. ChatGPT is a trademark of OpenAI." />
+    <meta property="og:url" content="https://polychat.co/chatgpt-alternative" />
+    <meta property="og:site_name" content="PolyChat" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="ChatGPT Alternative - PolyChat" />
+    <meta property="og:description" content="Looking for something similar to ChatGPT from OpenAI? Try the PolyChat ChatGPT Alternative! Access GPT-4.5, Claude 3.5, Gemini 2.5 Pro and more. Note that PolyChat has no affiliation with OpenAI. ChatGPT is a trademark of OpenAI." />
+    <meta property="og:image" content="/static/polychat-genies2.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@polychatco" />
+    <meta name="twitter:creator" content="@polychatco" />
+    <meta name="twitter:title" content="ChatGPT Alternative - PolyChat" />
+    <meta name="twitter:description" content="Looking for something similar to ChatGPT from OpenAI? Try the PolyChat ChatGPT Alternative! Access GPT-4.5, Claude 3.5, Gemini 2.5 Pro and more. Note that PolyChat has no affiliation with OpenAI. ChatGPT is a trademark of OpenAI." />
+    <meta name="twitter:image" content="/static/polychat-genies2.webp" />
 </svelte:head>
 
 <div class="w-full bg-[#0f1117] min-h-full overflow-y-auto overflow-fix" style="height: auto !important; overflow-y: auto !important; position: relative !important;">
