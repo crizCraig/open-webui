@@ -5,6 +5,7 @@
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
 	import mermaid from 'mermaid';
+	import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -52,10 +53,81 @@
 
 	let version;
 
+	// Helper function to hash data using SHA-256
+	async function hashData(
+		data: any
+	): Promise<string | { __error__: string; __original_value__?: any }> {
+		try {
+			const jsonString = JSON.stringify(data);
+			const msgUint8 = new TextEncoder().encode(jsonString); // encode as (utf-8) Uint8Array
+			const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8); // hash the message
+			const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
+			const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join(''); // convert bytes to hex string
+			return hashHex;
+		} catch (error) {
+			console.error('Hashing failed:', error);
+			// Mark the data as failed instead of returning a fallback string
+			try {
+				// Ensure the original data is serializable for sending
+				JSON.stringify(data);
+				return { __error__: 'hashing_failed', __original_value__: data };
+			} catch (stringifyError) {
+				console.error('Failed to stringify original data after hashing error:', stringifyError);
+				// If original data also fails to stringify, send a simpler error marker
+				return { __error__: 'hashing_and_stringify_failed' };
+			}
+		}
+	}
+
 	onMount(async () => {
 		if ($user === undefined && $page.url.pathname !== '/pricing' && !$page.url.pathname.startsWith('/legal/')) {
 			await goto('/h');
 		} else if (['user', 'admin'].includes($user.role)) {
+			// Generate Fingerprint for logged-in user
+			try {
+				const fp = await FingerprintJS.load();
+				const result = await fp.get({ extendedResult: true } as any);
+
+				// console.debug('fingerprintData:', result);
+
+				// Prepare data to send (deep copy and hash specific components)
+				const fingerprintData = JSON.parse(JSON.stringify(result));
+				
+				const componentsToHash = ['canvas', 'webGlExtensions', 'plugins', 'math'];
+
+				for (const componentName of componentsToHash) {
+					if (fingerprintData.components?.[componentName]?.value) {
+						fingerprintData.components[componentName].value = await hashData(
+							fingerprintData.components[componentName].value
+						);
+					}
+				}
+
+				// Send modified fingerprint data to backend
+				try {
+					const response = await fetch(`${getPolychatAppUrl()}/client`, {
+						method: 'POST',
+						mode: 'cors',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							token: localStorage.token, // Include token
+							fingerprintData: fingerprintData // Send the modified data
+						})
+					});
+
+					if (!response.ok) {
+						console.error('Failed to send fingerprint data:', response.status, response.statusText);
+					}
+				} catch (fetchError) {
+					console.error('Error sending fingerprint data:', fetchError);
+				}
+
+			} catch (error) {
+				console.error('Error generating fingerprint in layout:', error);
+			}
+
 			// Set the token cookie for Polychat app
 			if (localStorage.token) {
 				try {
