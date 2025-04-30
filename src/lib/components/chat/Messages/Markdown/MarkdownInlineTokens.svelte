@@ -35,9 +35,7 @@
 		{/if}
 	{:else if token.type === 'link'}
 		{#if token.tokens}
-			<a href={token.href} target="_blank" rel="nofollow" title={token.title}>
-				<svelte:self id={`${id}-a`} tokens={token.tokens} {onSourceClick} />
-			</a>
+			<a href={token.href} target="_blank" rel="nofollow" title={token.title}><svelte:self id={`${id}-a`} tokens={token.tokens} {onSourceClick} /></a>
 		{:else}
 			<a href={token.href} target="_blank" rel="nofollow" title={token.title}>{token.text}</a>
 		{/if}
@@ -55,8 +53,7 @@
 			on:click={() => {
 				copyToClipboard(unescapeHtml(token.text));
 				toast.success($i18n.t('Copied to clipboard'));
-			}}>{unescapeHtml(token.text)}</code
-		>
+			}}>{unescapeHtml(token.text)}</code>
 	{:else if token.type === 'br'}
 		<br />
 	{:else if token.type === 'del'}

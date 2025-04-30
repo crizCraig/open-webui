@@ -7,7 +7,20 @@
   const i18n = getContext('i18n');
   const POLYCHAT_APP_URL = getPolychatAppUrl();
   
-  let plansData = null;
+  interface Plan {
+    name: string;
+    price_id: string;
+  }
+
+  interface PlansData {
+    current_subscription: {
+      status: string;
+      price_id: string;
+    } | null;
+    available_plans: Plan[];
+  }
+
+  let plansData: PlansData | null = null;
   let useOwnApiKeys = false; // Toggle for API key mode
   
   onMount(async () => {
@@ -121,31 +134,15 @@
           </svg>
           <div><span class="text-gray-300">100k tokens one time use</span></div>
          </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited messages</span>
-         </li>
          {:else}
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited tokens</span>
-         </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">56 messages every 2 weeks</span>
-         </li>
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">56 messages every 2 weeks</span>
+          </li>
          {/if}
         </ul>
         <div class="mt-auto h-[52px]">
@@ -192,31 +189,15 @@
           </svg>
           <div><span class="text-gray-300">1 million tokens/month</span></div>
          </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited messages</span>
-         </li>
          {:else}
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited tokens</span>
-         </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">112 messages every 2 weeks</span>
-         </li>
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">112 messages every 2 weeks</span>
+          </li>
          {/if}
         </ul>
         <div class="mt-auto h-[52px]">
@@ -265,31 +246,15 @@
           </svg>
           <div><span class="text-gray-300">2 million tokens/month</span></div>
          </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited messages</span>
-         </li>
          {:else}
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited tokens</span>
-         </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">224 messages every 2 weeks</span>
-         </li>
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">224 messages every 2 weeks</span>
+          </li>
          {/if}
         </ul>
         <div class="mt-auto h-[52px]">
@@ -337,31 +302,15 @@
           </svg>
           <div><span class="text-gray-300">4 million tokens/month</span></div>
          </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-             clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited messages</span>
-         </li>
          {:else}
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-             clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited tokens</span>
-         </li>
-         <li class="flex items-start">
-          <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd"
-             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-             clip-rule="evenodd" />
-          </svg>
-          <span class="text-gray-300">Unlimited messages</span>
-         </li>
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">Unlimited messages</span>
+          </li>
          {/if}
         </ul>
         <div class="mt-auto h-[52px]">
@@ -404,8 +353,8 @@
         <tr class="border-b border-gray-700">
          <th class="px-6 py-3 text-lg font-medium text-gray-300">Plan</th>
          <th class="px-6 py-3 text-lg font-medium text-gray-300">Price</th>
-         <th class="px-6 py-3 text-lg font-medium text-gray-300">Tokens</th>
-         <th class="px-6 py-3 text-lg font-medium text-gray-300">{useOwnApiKeys ? 'Messages every 2 weeks' : 'Messages'}</th>
+         {#if !useOwnApiKeys}<th class="px-6 py-3 text-lg font-medium text-gray-300">Tokens</th>{/if}
+         {#if useOwnApiKeys}<th class="px-6 py-3 text-lg font-medium text-gray-300">Messages every 2 weeks</th>{/if}
          <th class="px-6 py-3 text-lg font-medium text-gray-300">Action</th>
         </tr>
         </thead>
@@ -413,8 +362,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">Free</td>
          <td class="px-6 py-4 text-white">$0</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~100k one time'}</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? '56' : 'Unlimited'}</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~100k one time</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">56</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if !plansData?.current_subscription || plansData?.current_subscription?.status !== 'active'}
@@ -432,8 +381,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">🌱 Starter</td>
          <td class="px-6 py-4 text-white">$5</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~1 million'}</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? '112' : 'Unlimited'}</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~1 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">112</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id}
@@ -454,8 +403,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">🚀 Basic</td>
          <td class="px-6 py-4 text-white">$10</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~2 million'}</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? '224' : 'Unlimited'}</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~2 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">224</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id}
@@ -476,8 +425,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">⭐ Plus</td>
          <td class="px-6 py-4 text-white">$20</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~4 million'}</td>
-         <td class="px-6 py-4 text-gray-300">Unlimited</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~4 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id}
@@ -490,7 +439,7 @@
             {/if}
           {:else}
             <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
-              Try First
+              Try Before You Buy
             </a>
           {/if}
          </td>
@@ -498,8 +447,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">💎 Pro</td>
          <td class="px-6 py-4 text-white">$40</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~8 million'}</td>
-         <td class="px-6 py-4 text-gray-300">Unlimited</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~8 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id}
@@ -520,8 +469,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">🏆 Top 1%</td>
          <td class="px-6 py-4 text-white">$80</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~16 million'}</td>
-         <td class="px-6 py-4 text-gray-300">Unlimited</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~16 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id}
@@ -542,8 +491,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">👑 Top 0.1%</td>
          <td class="px-6 py-4 text-white">$160</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~32 million'}</td>
-         <td class="px-6 py-4 text-gray-300">Unlimited</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~32 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id}
@@ -564,8 +513,8 @@
         <tr class="border-b border-gray-800 hover:bg-[#161922]">
          <td class="px-6 py-4 text-white">🌟 Top 0.01%</td>
          <td class="px-6 py-4 text-white">$320</td>
-         <td class="px-6 py-4 text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~64 million'}</td>
-         <td class="px-6 py-4 text-gray-300">Unlimited</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~64 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
          <td class="px-6 py-4">
           {#if $user}
             {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id}
@@ -600,10 +549,10 @@
               <span class="text-gray-400">Tokens:</span>
               <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~100k one time'}</span>
             </div>
-            <div class="flex justify-between">
+            {#if useOwnApiKeys}<div class="flex justify-between">
               <span class="text-gray-400">Messages:</span>
               <span class="text-gray-300">{useOwnApiKeys ? '56 every 2 weeks' : 'Unlimited'}</span>
-            </div>
+            </div>{/if}
           </div>
           <div class="mt-3">
             {#if $user}
@@ -631,10 +580,10 @@
               <span class="text-gray-400">Tokens:</span>
               <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~1 million'}</span>
             </div>
-            <div class="flex justify-between">
+            {#if useOwnApiKeys}<div class="flex justify-between">
               <span class="text-gray-400">Messages:</span>
               <span class="text-gray-300">{useOwnApiKeys ? '112 every 2 weeks' : 'Unlimited'}</span>
-            </div>
+            </div>{/if}
           </div>
           <div class="mt-3">
             {#if $user}
@@ -668,10 +617,10 @@
               <span class="text-gray-400">Tokens:</span>
               <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~2 million'}</span>
             </div>
-            <div class="flex justify-between">
+            {#if useOwnApiKeys}<div class="flex justify-between">
               <span class="text-gray-400">Messages:</span>
               <span class="text-gray-300">{useOwnApiKeys ? '224 every 2 weeks' : 'Unlimited'}</span>
-            </div>
+            </div>{/if}
           </div>
           <div class="mt-3">
             {#if $user}
@@ -702,10 +651,10 @@
               <span class="text-gray-400">Tokens:</span>
               <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~4 million'}</span>
             </div>
-            <div class="flex justify-between">
+            {#if useOwnApiKeys}<div class="flex justify-between">
               <span class="text-gray-400">Messages:</span>
               <span class="text-gray-300">Unlimited</span>
-            </div>
+            </div>{/if}
           </div>
           <div class="mt-3">
             {#if $user}
@@ -736,10 +685,10 @@
               <span class="text-gray-400">Tokens:</span>
               <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~8 million'}</span>
             </div>
-            <div class="flex justify-between">
+            {#if useOwnApiKeys}<div class="flex justify-between">
               <span class="text-gray-400">Messages:</span>
               <span class="text-gray-300">Unlimited</span>
-            </div>
+            </div>{/if}
           </div>
           <div class="mt-3">
             {#if $user}
@@ -774,10 +723,10 @@
                   <span class="text-gray-400">Tokens:</span>
                   <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~16 million'}</span>
                 </div>
-                <div class="flex justify-between">
+                {#if useOwnApiKeys}<div class="flex justify-between">
                   <span class="text-gray-400">Messages:</span>
                   <span class="text-gray-300">Unlimited</span>
-                </div>
+                </div>{/if}
               </div>
               <div class="mt-3">
                 {#if $user}
@@ -808,10 +757,10 @@
                   <span class="text-gray-400">Tokens:</span>
                   <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~32 million'}</span>
                 </div>
-                <div class="flex justify-between">
+                {#if useOwnApiKeys}<div class="flex justify-between">
                   <span class="text-gray-400">Messages:</span>
                   <span class="text-gray-300">Unlimited</span>
-                </div>
+                </div>{/if}
               </div>
               <div class="mt-3">
                 {#if $user}
@@ -842,10 +791,10 @@
                   <span class="text-gray-400">Tokens:</span>
                   <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~64 million'}</span>
                 </div>
-                <div class="flex justify-between">
+                {#if useOwnApiKeys}<div class="flex justify-between">
                   <span class="text-gray-400">Messages:</span>
                   <span class="text-gray-300">Unlimited</span>
-                </div>
+                </div>{/if}
               </div>
               <div class="mt-3">
                 {#if $user}
@@ -931,10 +880,12 @@
         </ul>
        </div>
        {/if}
+       {#if !useOwnApiKeys}
        <div class="bg-[#1e212e] p-6 rounded-lg">
-        <h3 class="text-xl font-medium text-white mb-2">Do tokens used by free models count towards anything?</h3>
-        <p class="text-gray-300">No, the tokens won't count towards anything but messages still will.</p>
+        <h3 class="text-xl font-medium text-white mb-2">Are messages limited in the standard plans?</h3>
+        <p class="text-gray-300">No, when using our standard token-based pricing, only your token usage is limited per month according to your plan. You can send as many messages as you like within your token allowance.</p>
        </div>
+       {/if}
       </div>
      </div>
     </section>

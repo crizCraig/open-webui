@@ -22,7 +22,7 @@
 
                 <div class="space-y-4 text-sm">
                     <p class="font-medium">
-                        {$i18n.t('Last Updated: February 17, 2025')}
+                        {$i18n.t('Last Updated: April 29, 2025')}
                     </p>
                     
                     <p>
@@ -78,7 +78,7 @@
                     <ul class="list-disc pl-5 space-y-2">
                         <li>{$i18n.t('Any content you input, upload, or submit to PolyChat, including questions, prompts, and generated output, may contain personal information.')}</li>
                         <li>{$i18n.t('We process this data as necessary to fulfill our contract with you—to generate and deliver content.')}</li>
-                        <li>{$i18n.t('Depending on the model chosen, this content is shared with the respsective model provider(s) (such as OpenAI, Anthropic, etc.) and is subject to their respective privacy policies and data handling procedures.')}</li>
+                        <li>{$i18n.t('Depending on the model chosen, this content is shared with the respective model provider(s) (such as OpenAI, Anthropic, etc.) and is subject to their respective privacy policies and data handling procedures.')}</li>
                         <li>{$i18n.t('PolyChat personnel will not access user chat content, including any associated tags or other AI-generated metadata without your explicit consent.')}</li>
                     </ul>
 
