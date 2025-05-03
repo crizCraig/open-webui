@@ -655,21 +655,28 @@ async def generate_moa_response(
 
     # Check if the user has a custom task model
     # If the user has a custom task model, use that model
-    task_model_id = get_task_model_id(
-        model_id,
-        request.app.state.config.TASK_MODEL,
-        request.app.state.config.TASK_MODEL_EXTERNAL,
-        models,
-    )
+    # task_model_id = get_task_model_id(
+    #     model_id,
+    #     request.app.state.config.TASK_MODEL,
+    #     request.app.state.config.TASK_MODEL_EXTERNAL,
+    #     models,
+    # )
+    # TODO: Allow configuring MOA model separately.
+    task_model_id = "Gemini 2.5 Pro"
 
-    log.debug(f"generating MOA model {task_model_id} for user {user.email} ")
+    log.info(f"generating MOA model {task_model_id} for user {user.email} ")
 
     template = DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE
+
+    responses = form_data["responses"]
+    formatted_responses = ""
+    for i, response in enumerate(responses):
+        formatted_responses += f"Response #{i+1}:\\n{response}\\n\\n"
 
     content = moa_response_generation_template(
         template,
         form_data["prompt"],
-        form_data["responses"],
+        formatted_responses.strip(),
     )
 
     payload = {

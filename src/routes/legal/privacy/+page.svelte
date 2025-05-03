@@ -80,6 +80,9 @@
                         <li>{$i18n.t('We process this data as necessary to fulfill our contract with you—to generate and deliver content.')}</li>
                         <li>{$i18n.t('Depending on the model chosen, this content is shared with the respective model provider(s) (such as OpenAI, Anthropic, etc.) and is subject to their respective privacy policies and data handling procedures.')}</li>
                         <li>{$i18n.t('PolyChat personnel will not access user chat content, including any associated tags or other AI-generated metadata without your explicit consent.')}</li>
+                        <li>{$i18n.t('When you delete a chat, it is permanently removed from our live systems immediately.')}</li>
+                        <li>{$i18n.t('For disaster recovery purposes, we maintain encrypted offline database backups for 30 days.')}</li>
+                        <li>{$i18n.t('If you designate a chat as a "Temporary Chat" using the option in the model selector, the content of that chat will not be stored in our database or included in any backups.')}</li>
                     </ul>
 
                     <h2 class="text-xl font-semibold mt-4">
