@@ -136,6 +136,18 @@ async def update_user_role(form_data: UserRoleUpdateForm, user=Depends(get_admin
 async def get_user_settings_by_session_user(user=Depends(get_verified_user)):
     user = Users.get_user_by_id(user.id)
     if user:
+        # Initialize settings if None
+        if user.settings is None:
+            user.settings = UserSettings()
+        
+        # Ensure widescreenMode is set with default value True if not present
+        if not hasattr(user.settings, "ui") or user.settings.ui is None:
+            user.settings.ui = {}
+        
+        if "widescreenMode" not in user.settings.ui:
+            user.settings.ui["widescreenMode"] = True
+        if "largeTextAsFile" not in user.settings.ui:
+            user.settings.ui["largeTextAsFile"] = True
         return user.settings
     else:
         raise HTTPException(
