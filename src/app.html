@@ -1,28 +1,51 @@
 <!doctype html>
 <html lang="en">
 	<head>
+		<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-THECKPXW01"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+
+			gtag('config', 'G-THECKPXW01');
+		</script>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/png" href="/static/favicon.png" />
 		<link rel="icon" type="image/png" href="/static/favicon-96x96.png" sizes="96x96" />
-		<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 		<link rel="shortcut icon" href="/static/favicon.ico" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
-		<meta name="apple-mobile-web-app-title" content="Open WebUI" />
-
+		<meta name="apple-mobile-web-app-title" content="PolyChat" />
 		<link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
 		/>
 		<meta name="theme-color" content="#171717" />
-		<meta name="robots" content="noindex,nofollow" />
-		<meta name="description" content="Open WebUI" />
-		<link
-			rel="search"
-			type="application/opensearchdescription+xml"
-			title="Open WebUI"
-			href="/opensearch.xml"
-		/>
+		<meta name="description" content="Combine the world's most powerful LLMs from OpenAI, Anthropic, Perplexity, Google, DeepSeek, LLama, and more." />
+
+		<meta property="og:title" content="PolyChat - Chat with multiple LLMs" />
+		<meta property="og:description" content="Combine the world's most powerful LLMs from OpenAI, Anthropic, Perplexity, Google, DeepSeek, LLama, and more." />
+		<meta property="og:type" content="website" />
+		<meta property="og:image" content="https://polychat.co/static/og-image.png" />
+		<meta property="og:url" content="https://polychat.co" />
+
+		<!-- X Card tags -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="PolyChat - Chat with multiple LLMs" />
+		<meta name="twitter:description" content="Combine the world's most powerful LLMs from OpenAI, Anthropic, Perplexity, Google, DeepSeek, LLama, and more." />
+		<meta name="twitter:image" content="https://polychat.co/static/og-image.png" />
+		<meta name="keywords" content="LLM, AI Chat, OpenAI, Anthropic, Claude, ChatGPT, Perplexity, Google, DeepSeek, LLama, AI Assistant" />
+		<meta name="author" content="PolyChat" />
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://polychat.co" />
+		<link rel="preload" href="/static/polychat.co-frame.jpg" as="image">
+<!--		<link-->
+<!--			rel="search"-->
+<!--			type="application/opensearchdescription+xml"-->
+<!--			title="PolyChat"-->
+<!--			href="/opensearch.xml"-->
+<!--		/>-->
 		<script src="/static/loader.js" defer></script>
 
 		<script>
@@ -101,7 +124,32 @@
 			})();
 		</script>
 
-		<title>Open WebUI</title>
+		<!-- datadog -->
+		<script>
+			(function(h,o,u,n,d) {
+			h=h[d]=h[d]||{q:[],onReady:function(c){h.q.push(c)}}
+			d=o.createElement(u);d.async=1;d.src=n
+			n=o.getElementsByTagName(u)[0];n.parentNode.insertBefore(d,n)
+			})(window,document,'script','https://www.datadoghq-browser-agent.com/us5/v6/datadog-rum.js','DD_RUM')
+			window.DD_RUM.onReady(function() {
+			window.DD_RUM.init({
+				clientToken: 'pub82027b8ee6e268eaa514929e1cd267f8',
+				applicationId: 'ccd6feb1-8ee6-406e-ad37-c54dff099b68',
+				// `site` refers to the Datadog site parameter of your organization
+				// see https://docs.datadoghq.com/getting_started/site/
+				site: 'us5.datadoghq.com',
+				service: 'polychat',
+				env: 'production',
+				// Specify a version number to identify the deployed version of your application in Datadog
+				// version: '1.0.0',
+				sessionSampleRate: 100,
+				sessionReplaySampleRate: 20,
+				defaultPrivacyLevel: 'mask-user-input',
+			});
+			})
+		</script>
+
+		<title>PolyChat</title>
 
 		%sveltekit.head%
 	</head>
@@ -113,9 +161,20 @@
 			id="splash-screen"
 			style="position: fixed; z-index: 100; top: 0; left: 0; width: 100%; height: 100%"
 		>
+			<script>
+				// Immediately hide splash screen
+				if (window.location.pathname.includes('/chatgpt-alternative') ||
+				    window.location.pathname.includes('/h') ||
+					// window.location.pathname.includes('/') || // removes splash but still loads entire app before redirect to /h so needs splash
+				    window.location.pathname.includes('/pricing') ||
+					window.location.pathname.includes('/api-pricing') ||
+				    window.location.pathname.includes('/legal')) {
+					document.getElementById('splash-screen').style.display = 'none';
+				}
+			</script>
 			<style type="text/css" nonce="">
 				html {
-					overflow-y: scroll !important;
+					overflow-y: auto !important;
 				}
 			</style>
 

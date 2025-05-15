@@ -149,6 +149,8 @@ def replace_messages_variable(
 
 
 def rag_template(template: str, context: str, query: str):
+    if not query:
+        query = "No query provided, just describe the input."
     if template.strip() == "":
         template = DEFAULT_RAG_TEMPLATE
 

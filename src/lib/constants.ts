@@ -13,6 +13,15 @@ export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/audio`;
 export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/images`;
 export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
 
+import { get } from 'svelte/store';
+import { config } from '$lib/stores';
+
+// Helper function that will pull the URL from the config store or use a default
+export function getPolychatAppUrl() {
+  const configValue = get(config);
+  return configValue?.polychat_app_url || 'https://app.polychat.co';
+}
+
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
 export const REQUIRED_OLLAMA_VERSION = '0.1.16';
@@ -95,7 +104,7 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 	'msg'
 ];
 
-export const PASTED_TEXT_CHARACTER_LIMIT = 1000;
+export const PASTED_TEXT_CHARACTER_LIMIT = 64000;
 
 // Source: https://kit.svelte.dev/docs/modules#$env-static-public
 // This feature, akin to $env/static/private, exclusively incorporates environment variables

@@ -24,12 +24,14 @@ export default defineConfig({
 			targets: [
 				{
 					src: 'node_modules/onnxruntime-web/dist/*.jsep.*',
-
 					dest: 'wasm'
 				}
 			]
 		})
 	],
+	server: {
+		allowedHosts: ['local.polychat.co']
+	},
 	define: {
 		APP_VERSION: JSON.stringify(process.env.npm_package_version),
 		APP_BUILD_HASH: JSON.stringify(process.env.APP_BUILD_HASH || 'dev-build')

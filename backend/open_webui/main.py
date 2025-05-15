@@ -279,6 +279,7 @@ from open_webui.config import (
     SHOW_ADMIN_DETAILS,
     JWT_EXPIRES_IN,
     ENABLE_SIGNUP,
+    ENABLE_PASSWORD_SIGNUPS,
     ENABLE_LOGIN_FORM,
     ENABLE_API_KEY,
     ENABLE_API_KEY_ENDPOINT_RESTRICTIONS,
@@ -373,6 +374,7 @@ from open_webui.env import (
     OFFLINE_MODE,
     ENABLE_OTEL,
     EXTERNAL_PWA_MANIFEST_URL,
+    POLYCHAT_APP_URL,
 )
 
 
@@ -555,6 +557,7 @@ app.state.config.ENABLE_DIRECT_CONNECTIONS = ENABLE_DIRECT_CONNECTIONS
 
 app.state.config.WEBUI_URL = WEBUI_URL
 app.state.config.ENABLE_SIGNUP = ENABLE_SIGNUP
+app.state.config.ENABLE_PASSWORD_SIGNUPS = ENABLE_PASSWORD_SIGNUPS
 app.state.config.ENABLE_LOGIN_FORM = ENABLE_LOGIN_FORM
 
 app.state.config.ENABLE_API_KEY = ENABLE_API_KEY
@@ -1339,6 +1342,7 @@ async def get_app_config(request: Request):
             "enable_ldap": app.state.config.ENABLE_LDAP,
             "enable_api_key": app.state.config.ENABLE_API_KEY,
             "enable_signup": app.state.config.ENABLE_SIGNUP,
+            "enable_password_signups": app.state.config.ENABLE_PASSWORD_SIGNUPS,
             "enable_login_form": app.state.config.ENABLE_LOGIN_FORM,
             "enable_websocket": ENABLE_WEBSOCKET_SUPPORT,
             **(
@@ -1363,6 +1367,7 @@ async def get_app_config(request: Request):
                 else {}
             ),
         },
+        "polychat_app_url": POLYCHAT_APP_URL,
         **(
             {
                 "default_models": app.state.config.DEFAULT_MODELS,

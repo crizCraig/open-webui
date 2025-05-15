@@ -229,19 +229,19 @@
 									{/if}
 								</div>
 
-								{#if $config?.onboarding ?? false}
-									<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">
-										ⓘ {$WEBUI_NAME}
-										{$i18n.t(
-											'does not make any external connections, and your data stays securely on your locally hosted server.'
-										)}
-									</div>
-								{/if}
+								<!--{#if $config?.onboarding ?? false}-->
+								<!--	<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">-->
+								<!--		ⓘ {$WEBUI_NAME}-->
+								<!--		{$i18n.t(-->
+								<!--			'does not make any external connections, and your data stays securely on your locally hosted server.'-->
+								<!--		)}-->
+								<!--	</div>-->
+								<!--{/if}-->
 							</div>
 
 							{#if $config?.features.enable_login_form || $config?.features.enable_ldap}
 								<div class="flex flex-col mt-4">
-									{#if mode === 'signup'}
+									{#if mode === 'signup' && $config?.features.enable_password_signups}
 										<div class="mb-2">
 											<label for="name" class="text-sm font-medium text-left mb-1 block"
 												>{$i18n.t('Name')}</label
@@ -275,38 +275,42 @@
 											/>
 										</div>
 									{:else}
-										<div class="mb-2">
-											<label for="email" class="text-sm font-medium text-left mb-1 block"
+										{#if mode === 'signin' || ($config?.features.enable_password_signups && mode === 'signup')}
+											<div class="mb-2">
+												<label for="email" class="text-sm font-medium text-left mb-1 block"
 												>{$i18n.t('Email')}</label
 											>
+												<input
+													bind:value={email}
+													type="email"
+												  id="email"
+													class="my-0.5 w-full text-sm outline-none bg-transparent"
+													autocomplete="email"
+													name="email"
+													placeholder={$i18n.t('Enter Your Email')}
+													required
+												/>
+											</div>
+										{/if}
+									{/if}
+
+									{#if mode === 'signin' || ($config?.features.enable_password_signups && mode === 'signup')}
+										<div>
+											<label for="password" class="text-sm font-medium text-left mb-1 block"
+											>{$i18n.t('Password')}</label
+										>
 											<input
-												bind:value={email}
-												type="email"
-												id="email"
+												bind:value={password}
+												type="password"
+											  id="password"
 												class="my-0.5 w-full text-sm outline-hidden bg-transparent"
-												autocomplete="email"
-												name="email"
-												placeholder={$i18n.t('Enter Your Email')}
+												placeholder={$i18n.t('Enter Your Password')}
+												autocomplete="current-password"
+												name="current-password"
 												required
 											/>
 										</div>
 									{/if}
-
-									<div>
-										<label for="password" class="text-sm font-medium text-left mb-1 block"
-											>{$i18n.t('Password')}</label
-										>
-										<input
-											bind:value={password}
-											type="password"
-											id="password"
-											class="my-0.5 w-full text-sm outline-hidden bg-transparent"
-											placeholder={$i18n.t('Enter Your Password')}
-											autocomplete="current-password"
-											name="current-password"
-											required
-										/>
-									</div>
 								</div>
 							{/if}
 							<div class="mt-5">
@@ -319,16 +323,20 @@
 											{$i18n.t('Authenticate')}
 										</button>
 									{:else}
-										<button
-											class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
-											type="submit"
-										>
-											{mode === 'signin'
-												? $i18n.t('Sign in')
-												: ($config?.onboarding ?? false)
-													? $i18n.t('Create Admin Account')
-													: $i18n.t('Create Account')}
-										</button>
+										{#if mode === 'signin' || ($config?.onboarding ?? false) || $config?.features.enable_password_signups}
+											<button
+												class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
+												type="submit"
+											>
+												{#if mode === 'signin'}
+													{$i18n.t('Sign in')}
+												{:else if ($config?.onboarding ?? false)}
+													{$i18n.t('Create Admin Account')}
+												{:else}
+													{$i18n.t('Create Account')}
+												{/if}
+											</button>
+										{/if}
 
 										{#if $config?.features.enable_signup && !($config?.onboarding ?? false)}
 											<div class=" mt-4 text-sm text-center">

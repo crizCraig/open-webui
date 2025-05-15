@@ -44,6 +44,7 @@ from open_webui.env import (
     WEBUI_NAME,
     WEBUI_AUTH_COOKIE_SAME_SITE,
     WEBUI_AUTH_COOKIE_SECURE,
+    WEBUI_SESSION_COOKIE_DOMAIN,
 )
 from open_webui.utils.misc import parse_duration
 from open_webui.utils.auth import get_password_hash, create_token
@@ -344,7 +345,13 @@ class OAuthManager:
             raise HTTPException(404)
         client = self.get_client(provider)
         try:
-            token = await client.authorize_access_token(request)
+            try:
+                incoming_state = request.query_params.get("state")
+                log.debug(f"OAuth incoming state: {incoming_state}")
+                token = await client.authorize_access_token(request)
+            except Exception as e:
+                incoming_state = request.query_params.get("state")
+                log.warning(f"OAuth access token error: {e}, incoming state: {incoming_state}")
         except Exception as e:
             log.warning(f"OAuth callback error: {e}")
             raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
@@ -401,9 +408,14 @@ class OAuthManager:
                 log.warning(f"OAuth callback failed, email is missing: {user_data}")
                 raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
         email = email.lower()
+        domain = email.split("@")[-1]
+        # Block qwiklabs.net domains
+        if domain.endswith("qwiklabs.net"):
+            log.warning(f"OAuth callback failed, this domain is not allowed: {user_data}")
+            raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
         if (
             "*" not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
-            and email.split("@")[-1] not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
+            and domain not in auth_manager_config.OAUTH_ALLOWED_DOMAINS
         ):
             log.warning(
                 f"OAuth callback failed, e-mail domain is not in the list of allowed domains: {user_data}"
@@ -519,6 +531,7 @@ class OAuthManager:
             httponly=True,  # Ensures the cookie is not accessible via JavaScript
             samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
             secure=WEBUI_AUTH_COOKIE_SECURE,
+            domain=WEBUI_SESSION_COOKIE_DOMAIN,
         )
 
         if ENABLE_OAUTH_SIGNUP.value:
@@ -529,6 +542,7 @@ class OAuthManager:
                 httponly=True,
                 samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
                 secure=WEBUI_AUTH_COOKIE_SECURE,
+                # domain not needed as we don't need to share oauth cookies across subdomains
             )
         # Redirect back to the frontend with the JWT token
         redirect_url = f"{request.base_url}auth#token={jwt_token}"

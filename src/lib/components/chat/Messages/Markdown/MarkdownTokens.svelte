@@ -282,8 +282,7 @@
 				id={`${id}-${tokenIdx}-p`}
 				tokens={token.tokens ?? []}
 				{onSourceClick}
-			/>
-		</p>
+			/></p>
 	{:else if token.type === 'text'}
 		{#if top}
 			<p>
@@ -291,8 +290,7 @@
 					<MarkdownInlineTokens id={`${id}-${tokenIdx}-t`} tokens={token.tokens} {onSourceClick} />
 				{:else}
 					{unescapeHtml(token.text)}
-				{/if}
-			</p>
+				{/if}</p>
 		{:else if token.tokens}
 			<MarkdownInlineTokens
 				id={`${id}-${tokenIdx}-p`}

@@ -106,8 +106,8 @@ for source in log_sources:
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
 WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
-if WEBUI_NAME != "Open WebUI":
-    WEBUI_NAME += " (Open WebUI)"
+# if WEBUI_NAME != "Open WebUI":
+#     WEBUI_NAME += " (Open WebUI)"
 
 WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
 
@@ -251,6 +251,13 @@ if FROM_INIT_PY:
     ).resolve()
 
 ####################################
+# External Service URLs
+####################################
+
+POLYCHAT_APP_URL = os.environ.get("POLYCHAT_APP_URL", "https://app.polychat.co")
+log.info(f"POLYCHAT_APP_URL: {POLYCHAT_APP_URL}")
+
+####################################
 # Database
 ####################################
 
@@ -385,6 +392,11 @@ WEBUI_AUTH_COOKIE_SECURE = (
         os.environ.get("WEBUI_SESSION_COOKIE_SECURE", "false"),
     ).lower()
     == "true"
+)
+
+WEBUI_SESSION_COOKIE_DOMAIN = os.environ.get(
+    "WEBUI_SESSION_COOKIE_DOMAIN",
+    None,
 )
 
 if WEBUI_AUTH and WEBUI_SECRET_KEY == "":

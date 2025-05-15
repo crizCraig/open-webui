@@ -150,7 +150,7 @@
 				{#if message.files}
 					<div class="mt-2.5 mb-1 w-full flex flex-col justify-end overflow-x-auto gap-1 flex-wrap">
 						{#each message.files as file}
-							<div class={($settings?.chatBubble ?? true) ? 'self-end' : ''}>
+							<div class={($settings?.chatBubble ?? true) ? 'self-start' : ''}>
 								{#if file.type === 'image'}
 									<Image src={file.url} imageClassName=" max-h-96 rounded-lg" />
 								{:else}
@@ -293,7 +293,7 @@
 					</div>
 				{:else}
 					<div class="w-full">
-						<div class="flex {($settings?.chatBubble ?? true) ? 'justify-end pb-1' : 'w-full'}">
+						<div class="flex {($settings?.chatBubble ?? true) ? 'justify-start pb-1' : 'w-full'}">
 							<div
 								class="rounded-3xl {($settings?.chatBubble ?? true)
 									? `max-w-[90%] px-5 py-2  bg-gray-50 dark:bg-gray-850 ${
@@ -309,7 +309,7 @@
 
 						<div
 							class=" flex {($settings?.chatBubble ?? true)
-								? 'justify-end'
+								? 'justify-start'
 								: ''}  text-gray-600 dark:text-gray-500"
 						>
 							{#if !($settings?.chatBubble ?? true)}

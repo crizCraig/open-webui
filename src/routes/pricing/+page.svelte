@@ -1,0 +1,934 @@
+<script lang="ts">
+  import { WEBUI_NAME } from '$lib/stores';
+  import { getContext, onMount } from 'svelte';
+  import { getPolychatAppUrl } from '$lib/constants';
+  import { user } from '$lib/stores';
+  
+  const i18n = getContext('i18n');
+  const POLYCHAT_APP_URL = getPolychatAppUrl();
+  
+  interface Plan {
+    name: string;
+    price_id: string;
+  }
+
+  interface PlansData {
+    current_subscription: {
+      status: string;
+      price_id: string;
+    } | null;
+    available_plans: Plan[];
+  }
+
+  let plansData: PlansData | null = null;
+  let useOwnApiKeys = false; // Toggle for API key mode
+  
+  onMount(async () => {
+    // Set the token cookie for Polychat app if user is logged in
+    if ($user && localStorage.token) {
+      try {
+        // Make a background fetch request to set the cookie
+        fetch(`${POLYCHAT_APP_URL}/set-cookie`, {
+          method: 'POST',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            token: localStorage.token
+          }),
+        }).catch(error => {
+          console.error('Failed to set cookie:', error);
+        });
+      } catch (error) {
+        console.error('Error setting token cookie:', error);
+      }
+    }
+    
+    if ($user) {
+      try {
+        const response = await fetch(`${POLYCHAT_APP_URL}/plans?user_email=${encodeURIComponent($user.email)}`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          plansData = await response.json();
+        }
+      } catch (error) {
+        console.error('Failed to fetch user plan:', error);
+      }
+    }
+  });
+  
+  // Function to toggle between pricing modes
+  function toggleApiKeyMode() {
+    useOwnApiKeys = !useOwnApiKeys;
+  }
+</script>
+<div class="h-screen overflow-auto">
+  <div class="w-full bg-[#0f1117]">
+   <!-- Header -->
+   <header class="fixed top-0 left-0 right-0 z-10 bg-[#0f1117]/80 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+     <div class="flex justify-between items-center">
+      <a href="/h" class="text-xl font-medium text-gray-300 hover:text-white transition-colors">
+                    <span class="logo bg-gradient-to-r from-emerald-400 to-blue-500 text-transparent bg-clip-text"
+              style="font-family: 'Gill Sans', sans-serif;">
+                        polychat
+                    </span>
+      </a>
+      {#if !$user}
+      <a href="/auth" class="text-xl font-medium text-gray-300 hover:text-white transition-colors">
+       {$i18n.t('Login')}
+      </a>
+      {/if}
+     </div>
+    </div>
+   </header>
+   <main class="pt-16">
+    <!-- Pricing Hero Section -->
+    <section class="relative overflow-hidden border-b border-gray-800">
+     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div class="max-w-3xl">
+       <h1 class="text-5xl font-semibold text-gray-100 mb-6">
+        Simple, transparent <span class="bg-gradient-to-r from-emerald-400 to-blue-500 text-transparent bg-clip-text">pricing</span>
+       </h1>
+       <p class="text-xl text-gray-300 mb-8">
+        Free to try. No rate limits. Cancel anytime.
+       </p>
+      </div>
+     </div>
+    </section>
+    <!-- Plans Section -->
+    <section class="bg-[#161922] py-16 border-b border-gray-800">
+     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+       <h2 class="text-3xl font-semibold text-white mb-4">{useOwnApiKeys ? 'Subscription Plans' : 'Subscription Plans'}</h2>
+       <p class="text-lg text-gray-300 max-w-2xl mx-auto">
+        {#if useOwnApiKeys}
+        Pricing when <b>using your own API keys.</b>
+        {/if}
+        Choose a plan based on your usage needs. Upgrade or downgrade anytime.
+       </p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+       <!-- Free Plan -->
+       <div
+        class="p-8 bg-[#1e212e] rounded-xl border border-gray-700 transform transition-transform duration-300 hover:shadow-[0_0_25px_rgba(16,185,129,0.1)] flex flex-col">
+        <div class="text-2xl font-semibold text-white mb-2">Free</div>
+        <div class="text-4xl font-bold text-white mb-6">$0<span class="text-lg text-gray-400">/month</span></div>
+        <ul class="space-y-3 mb-8 flex-grow">
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-300">Access to all models</span>
+         </li>
+         {#if !useOwnApiKeys}
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <div><span class="text-gray-300">100k tokens one time use</span></div>
+         </li>
+         {:else}
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">56 messages every 2 weeks</span>
+          </li>
+         {/if}
+        </ul>
+        <div class="mt-auto h-[52px]">
+        {#if $user}
+         {#if !plansData?.current_subscription || plansData?.current_subscription?.status !== 'active'}
+         <div class="text-center">
+          <div class="text-gray-300 inline-block">Current plan</div>
+         </div>
+         {:else}
+         <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+           class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
+          Subscribe Now
+         </a>
+         {/if}
+        {:else}
+         <a href="/auth" class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors">
+          Try for Free
+         </a>
+        {/if}
+        </div>
+       </div>
+       <!-- Starter Plan -->
+       <div
+        class="p-8 bg-gradient-to-br from-[#1a1f2c] to-[#161922] rounded-xl border border-emerald-500/40 transform transition-transform duration-300 shadow-[0_0_25px_rgba(16,185,129,0.1)] hover:shadow-[0_0_35px_rgba(16,185,129,0.2)] flex flex-col">
+        <div class="flex items-center gap-2 mb-2">
+         <div class="text-2xl font-semibold text-white">🌱 Starter</div>
+        </div>
+        <div class="text-4xl font-bold text-white mb-6">$5<span class="text-lg text-gray-400">/month</span></div>
+        <ul class="space-y-3 mb-8 flex-grow">
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-300">Access to all models</span>
+         </li>
+         {#if !useOwnApiKeys}
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <div><span class="text-gray-300">1 million tokens/month</span></div>
+         </li>
+         {:else}
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">112 messages every 2 weeks</span>
+          </li>
+         {/if}
+        </ul>
+        <div class="mt-auto h-[52px]">
+        {#if $user}
+         {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id}
+         <div class="text-center">
+          <div class="text-gray-300 inline-block">Current plan</div>
+         </div>
+         {:else}
+         <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+           class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
+          Subscribe Now
+         </a>
+         {/if}
+        {:else}
+         <a href="/auth"
+           class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
+          Try Before You Buy
+         </a>
+        {/if}
+        </div>
+       </div>
+       <!-- Basic Plan -->
+       <div
+        class="p-8 bg-[#1e212e] rounded-xl border border-gray-700 transform transition-transform duration-300 hover:shadow-[0_0_25px_rgba(16,185,129,0.1)] flex flex-col">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="text-2xl font-semibold text-white">🚀 Basic</div>
+          <span class="text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded">POPULAR</span>
+         </div>
+        <div class="text-4xl font-bold text-white mb-6">$10<span class="text-lg text-gray-400">/month</span></div>
+        <ul class="space-y-3 mb-8 flex-grow">
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-300">Access to all models</span>
+         </li>
+         {#if !useOwnApiKeys}
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd" />
+          </svg>
+          <div><span class="text-gray-300">2 million tokens/month</span></div>
+         </li>
+         {:else}
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-emerald-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">224 messages every 2 weeks</span>
+          </li>
+         {/if}
+        </ul>
+        <div class="mt-auto h-[52px]">
+        {#if $user}
+         {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id}
+         <div class="text-center">
+          <div class="text-gray-300 inline-block">Current plan</div>
+         </div>
+         {:else}
+         <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+           class="block w-full py-3 px-4 text-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
+          Subscribe Now
+         </a>
+         {/if}
+        {:else}
+         <a href="/auth"
+           class="block w-full py-3 px-4 text-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
+          Try Before You Buy
+         </a>
+        {/if}
+        </div>
+       </div>
+       <!-- Plus Plan -->
+       <div
+        class="p-8 bg-[#1e212e] rounded-xl border border-indigo-500/40 transform transition-transform duration-300 hover:shadow-[0_0_25px_rgba(99,102,241,0.1)] flex flex-col">
+        <div class="flex items-center gap-2 mb-2">
+         <div class="text-2xl font-semibold text-white">⭐ Plus</div>
+        </div>
+        <div class="text-4xl font-bold text-white mb-6">$20<span class="text-lg text-gray-400">/month</span></div>
+        <ul class="space-y-3 mb-8 flex-grow">
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+             clip-rule="evenodd" />
+          </svg>
+          <span class="text-gray-300">Access to all models</span>
+         </li>
+         {#if !useOwnApiKeys}
+         <li class="flex items-start">
+          <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+           <path fill-rule="evenodd"
+             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+             clip-rule="evenodd" />
+          </svg>
+          <div><span class="text-gray-300">4 million tokens/month</span></div>
+         </li>
+         {:else}
+          <li class="flex items-start">
+            <svg class="w-5 h-5 text-indigo-400 mr-2 mt-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            <span class="text-gray-300">Unlimited messages</span>
+          </li>
+         {/if}
+        </ul>
+        <div class="mt-auto h-[52px]">
+        {#if $user}
+         {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id}
+         <div class="text-center">
+          <div class="text-gray-300 inline-block">Current plan</div>
+         </div>
+         {:else}
+         <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+           class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-indigo-500/30">
+          Subscribe Now
+         </a>
+         {/if}
+        {:else}
+         <a href="/auth"
+           class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-indigo-500/30">
+          Try Before You Buy
+         </a>
+        {/if}
+        </div>
+       </div>
+      </div>
+     </div>
+    </section>
+    <!-- Full Plans Table -->
+    <section class="bg-[#0f1117] py-16 border-b border-gray-800">
+     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+       <h2 class="text-3xl font-semibold text-white mb-4">{useOwnApiKeys ? 'All Available Plans ' : 'All Available Plans'}</h2>
+       <p class="text-lg text-gray-300 max-w-2xl mx-auto">
+        Find the perfect plan for your needs
+       </p>
+      </div>
+      
+      <!-- Desktop table (hidden on mobile) -->
+      <div class="hidden md:block overflow-x-auto">
+       <table class="w-full text-left">
+        <thead>
+        <tr class="border-b border-gray-700">
+         <th class="px-6 py-3 text-lg font-medium text-gray-300">Plan</th>
+         <th class="px-6 py-3 text-lg font-medium text-gray-300">Price</th>
+         {#if !useOwnApiKeys}<th class="px-6 py-3 text-lg font-medium text-gray-300">Tokens</th>{/if}
+         {#if useOwnApiKeys}<th class="px-6 py-3 text-lg font-medium text-gray-300">Messages every 2 weeks</th>{/if}
+         <th class="px-6 py-3 text-lg font-medium text-gray-300">Action</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">Free</td>
+         <td class="px-6 py-4 text-white">$0</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~100k one time</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">56</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if !plansData?.current_subscription || plansData?.current_subscription?.status !== 'active'}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <span class="text-gray-400">Default Plan</span>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try Now
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">🌱 Starter</td>
+         <td class="px-6 py-4 text-white">$5</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~1 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">112</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">🚀 Basic</td>
+         <td class="px-6 py-4 text-white">$10</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~2 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">224</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">⭐ Plus</td>
+         <td class="px-6 py-4 text-white">$20</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~4 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try Before You Buy
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">💎 Pro</td>
+         <td class="px-6 py-4 text-white">$40</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~8 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">🏆 Top 1%</td>
+         <td class="px-6 py-4 text-white">$80</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~16 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">👑 Top 0.1%</td>
+         <td class="px-6 py-4 text-white">$160</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~32 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        <tr class="border-b border-gray-800 hover:bg-[#161922]">
+         <td class="px-6 py-4 text-white">🌟 Top 0.01%</td>
+         <td class="px-6 py-4 text-white">$320</td>
+         {#if !useOwnApiKeys}<td class="px-6 py-4 text-gray-300">~64 million</td>{/if}
+         {#if useOwnApiKeys}<td class="px-6 py-4 text-gray-300">Unlimited</td>{/if}
+         <td class="px-6 py-4">
+          {#if $user}
+            {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id}
+              <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
+            {:else}
+              <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
+                class="text-emerald-400 hover:text-emerald-300 transition-colors">
+                Subscribe
+              </a>
+            {/if}
+          {:else}
+            <a href="/auth" class="text-emerald-400 hover:text-emerald-300 transition-colors">
+              Try First
+            </a>
+          {/if}
+         </td>
+        </tr>
+        </tbody>
+       </table>
+      </div>
+      
+      <!-- Mobile card layout (visible only on mobile) -->
+      <div class="md:hidden space-y-4">
+        <!-- Free Plan Card -->
+        <div class="bg-[#161922] rounded-lg p-4 border border-gray-800">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-lg font-medium text-white">Free</h3>
+            <span class="text-xl font-semibold text-white">$0</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Tokens:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~100k one time'}</span>
+            </div>
+            {#if useOwnApiKeys}<div class="flex justify-between">
+              <span class="text-gray-400">Messages:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? '56 every 2 weeks' : 'Unlimited'}</span>
+            </div>{/if}
+          </div>
+          <div class="mt-3">
+            {#if $user}
+              {#if !plansData?.current_subscription || plansData?.current_subscription?.status !== 'active'}
+                <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+              {:else}
+                <span class="text-gray-400">Default Plan</span>
+              {/if}
+            {:else}
+              <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                Try Now
+              </a>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- Starter Plan Card -->
+        <div class="bg-[#161922] rounded-lg p-4 border border-emerald-500/40">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-lg font-medium text-white">🌱 Starter</h3>
+            <span class="text-xl font-semibold text-white">$5</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Tokens:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~1 million'}</span>
+            </div>
+            {#if useOwnApiKeys}<div class="flex justify-between">
+              <span class="text-gray-400">Messages:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? '112 every 2 weeks' : 'Unlimited'}</span>
+            </div>{/if}
+          </div>
+          <div class="mt-3">
+            {#if $user}
+              {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id}
+                <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+              {:else}
+                <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+                  class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full border border-emerald-500/30">
+                  Subscribe
+                </a>
+              {/if}
+            {:else}
+              <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full border border-emerald-500/30">
+                Try First
+              </a>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- Basic Plan Card -->
+        <div class="bg-[#161922] rounded-lg p-4 border border-gray-800">
+          <div class="flex justify-between items-center mb-2">
+            <div class="flex items-center gap-2">
+              <h3 class="text-lg font-medium text-white">🚀 Basic</h3>
+              <span class="text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded">POPULAR</span>
+            </div>
+            <span class="text-xl font-semibold text-white">$10</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Tokens:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~2 million'}</span>
+            </div>
+            {#if useOwnApiKeys}<div class="flex justify-between">
+              <span class="text-gray-400">Messages:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? '224 every 2 weeks' : 'Unlimited'}</span>
+            </div>{/if}
+          </div>
+          <div class="mt-3">
+            {#if $user}
+              {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id}
+                <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+              {:else}
+                <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+                  class="inline-block px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-center w-full">
+                  Subscribe
+                </a>
+              {/if}
+            {:else}
+              <a href="/auth" class="inline-block px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-center w-full">
+                Try First
+              </a>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- Plus Plan Card -->
+        <div class="bg-[#161922] rounded-lg p-4 border border-indigo-500/40">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-lg font-medium text-white">⭐ Plus</h3>
+            <span class="text-xl font-semibold text-white">$20</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Tokens:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~4 million'}</span>
+            </div>
+            {#if useOwnApiKeys}<div class="flex justify-between">
+              <span class="text-gray-400">Messages:</span>
+              <span class="text-gray-300">Unlimited</span>
+            </div>{/if}
+          </div>
+          <div class="mt-3">
+            {#if $user}
+              {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id}
+                <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+              {:else}
+                <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+                  class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded text-center w-full border border-indigo-500/30">
+                  Subscribe
+                </a>
+              {/if}
+            {:else}
+              <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded text-center w-full border border-indigo-500/30">
+                Try First
+              </a>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- Pro Plan Card -->
+        <div class="bg-[#161922] rounded-lg p-4 border border-gray-800">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-lg font-medium text-white">💎 Pro</h3>
+            <span class="text-xl font-semibold text-white">$40</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Tokens:</span>
+              <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~8 million'}</span>
+            </div>
+            {#if useOwnApiKeys}<div class="flex justify-between">
+              <span class="text-gray-400">Messages:</span>
+              <span class="text-gray-300">Unlimited</span>
+            </div>{/if}
+          </div>
+          <div class="mt-3">
+            {#if $user}
+              {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id}
+                <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+              {:else}
+                <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
+                  class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                  Subscribe
+                </a>
+              {/if}
+            {:else}
+              <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                Try First
+              </a>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- View more plans button -->
+        <details class="bg-[#161922] rounded-lg p-4 border border-gray-800">
+          <summary class="text-emerald-400 cursor-pointer font-medium">View Premium Plans</summary>
+          <div class="pt-4 space-y-4">
+            <!-- Top 1% Plan Card -->
+            <div class="bg-[#1a1f2c] rounded-lg p-4 border border-gray-700">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-medium text-white">🏆 Top 1%</h3>
+                <span class="text-xl font-semibold text-white">$80</span>
+              </div>
+              <div class="space-y-2 mb-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Tokens:</span>
+                  <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~16 million'}</span>
+                </div>
+                {#if useOwnApiKeys}<div class="flex justify-between">
+                  <span class="text-gray-400">Messages:</span>
+                  <span class="text-gray-300">Unlimited</span>
+                </div>{/if}
+              </div>
+              <div class="mt-3">
+                {#if $user}
+                  {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id}
+                    <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+                  {:else}
+                    <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
+                      class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                      Subscribe
+                    </a>
+                  {/if}
+                {:else}
+                  <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                    Try First
+                  </a>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- Top 0.1% Plan Card -->
+            <div class="bg-[#1a1f2c] rounded-lg p-4 border border-gray-700">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-medium text-white">👑 Top 0.1%</h3>
+                <span class="text-xl font-semibold text-white">$160</span>
+              </div>
+              <div class="space-y-2 mb-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Tokens:</span>
+                  <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~32 million'}</span>
+                </div>
+                {#if useOwnApiKeys}<div class="flex justify-between">
+                  <span class="text-gray-400">Messages:</span>
+                  <span class="text-gray-300">Unlimited</span>
+                </div>{/if}
+              </div>
+              <div class="mt-3">
+                {#if $user}
+                  {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id}
+                    <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+                  {:else}
+                    <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
+                      class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                      Subscribe
+                    </a>
+                  {/if}
+                {:else}
+                  <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                    Try First
+                  </a>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- Top 0.01% Plan Card -->
+            <div class="bg-[#1a1f2c] rounded-lg p-4 border border-gray-700">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-medium text-white">🌟 Top 0.01%</h3>
+                <span class="text-xl font-semibold text-white">$320</span>
+              </div>
+              <div class="space-y-2 mb-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Tokens:</span>
+                  <span class="text-gray-300">{useOwnApiKeys ? 'Unlimited' : '~64 million'}</span>
+                </div>
+                {#if useOwnApiKeys}<div class="flex justify-between">
+                  <span class="text-gray-400">Messages:</span>
+                  <span class="text-gray-300">Unlimited</span>
+                </div>{/if}
+              </div>
+              <div class="mt-3">
+                {#if $user}
+                  {#if plansData?.current_subscription?.status === 'active' && plansData?.current_subscription?.price_id === plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id}
+                    <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
+                  {:else}
+                    <a href="{POLYCHAT_APP_URL}/payment?user_id={$user.id}&user_email={$user.email}&price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
+                      class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                      Subscribe
+                    </a>
+                  {/if}
+                {:else}
+                  <a href="/auth" class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
+                    Try First
+                  </a>
+                {/if}
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+      
+      <div class="text-base text-gray-500 mt-4 text-center">
+        {#if !useOwnApiKeys}
+          Token estimates assume GPT-4o level prices. Actual token amounts will vary by model.
+          <br>
+          Free tokens are one-time use only and do not renew each month. All other plans renew their tokens each month.
+        {:else}
+          When using your own API keys, you get unlimited tokens since you pay the provider directly for token usage.
+          <br>
+          Message limits are calculated for a 2-week period rather than daily.
+        {/if}
+        <div class="mt-6">
+         <button 
+           on:click={toggleApiKeyMode} 
+           class="text-emerald-400 hover:text-emerald-300 transition-colors underline">
+           {useOwnApiKeys ? 'View standard token-based pricing' : 'View pricing when you use your own API keys'}
+         </button>
+        </div>
+      </div>
+     </div>
+    </section>
+    <!-- FAQ Section -->
+    <section class="bg-[#161922] py-16 border-b border-gray-800">
+     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+       <h2 class="text-3xl font-semibold text-white mb-4">Frequently Asked Questions</h2>
+      </div>
+      <div class="space-y-8">
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">How are tokens calculated?</h3>
+        <p class="text-gray-300">Tokens are roughly equivalent to words. For example, 1 million tokens is similar to the number of words in the Bible.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">How do I know which plan is right for me?</h3>
+        <p class="text-gray-300">We recommend starting with the free tier. Once your usage exceeds the free limits, we'll suggest the appropriate plan
+         based on your activity levels.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Can I change my plan later?</h3>
+        <p class="text-gray-300">Yes, you can upgrade or downgrade your subscription at any time via a "manage subscription" link we provide to you.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Are there any rate limits?</h3>
+        <p class="text-gray-300">No, there are no rate limits. You can use your tokens as fast or as slow as you want during the month. Tokens reset
+         at the beginning of the next billing cycle. If you hit the limits of your plan, you can upgrade to a higher plan to continue using PolyChat.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Can I use my own API keys?</h3>
+        <p class="text-gray-300">Yes! If you provide your own API keys for providers like OpenAI, Anthropic, Groq, etc., you'll only be charged for
+         messages, not tokens, since the provider bills you directly for token usage. When using your own API keys, we offer a different pricing structure with unlimited tokens but a limit on messages per 2-week period. You can toggle between the two pricing modes at the top of this page to compare.</p>
+       </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Do you offer an API?</h3>
+        <p class="text-gray-300">Yes! We offer an OpenAI-compatible API with competitive pricing. Check out our <a href="/api-pricing" class="text-emerald-400 hover:text-emerald-300 transition-colors">API pricing page</a> for more details.</p>
+       </div>
+       {#if useOwnApiKeys}
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">How are message limits calculated?</h3>
+        <p class="text-gray-300">Message limits are calculated over a rolling 14 day period. So each day you regain the number of messages you used 14 days ago.</p>
+        
+        <p class="text-gray-300 mt-2"><strong>Example:</strong></p>
+        <ul class="text-gray-300 list-disc pl-6 mt-1">
+          <li>April 1st: You sent 50 messages.</li>
+          <li>April 15th: Those 50 messages are no longer counted in your 14-day rolling limit.</li>
+          <li>April 16th: Your limit resets again, excluding the messages you sent on April 2nd, and so on.</li>
+        </ul>
+       </div>
+       {/if}
+       {#if !useOwnApiKeys}
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Are messages limited in the standard plans?</h3>
+        <p class="text-gray-300">No, when using our standard token-based pricing, only your token usage is limited per month according to your plan. You can send as many messages as you like within your token allowance.</p>
+       </div>
+       {/if}
+      </div>
+     </div>
+    </section>
+    <!-- CTA Section -->
+    <section class="bg-[#0f1117] py-16">
+     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl font-semibold text-white mb-6">Ready to get started?</h2>
+      <p class="text-xl text-gray-300 mb-8">
+       Try PolyChat for free today. No credit card required.
+      </p>
+      <div class="flex justify-center gap-4">
+       <a href="/auth"
+         class="inline-flex px-8 py-4 text-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+        Try for Free
+       </a>
+       <a href="mailto:support@polychat.co"
+         class="inline-flex px-8 py-4 text-lg bg-[#161922] hover:bg-[#1e2230] text-white rounded-lg font-semibold transition-all duration-300 border border-gray-700">
+        Contact Support
+       </a>
+      </div>
+     </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-[#0f1117] py-8 border-t border-gray-800">
+     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-center space-x-6 text-gray-400">
+       <a href="mailto:support@polychat.co" class="text-lg hover:text-gray-300 transition-colors">
+        Contact Us
+       </a>
+       <a href="/legal/privacy" class="text-lg hover:text-gray-300 transition-colors">
+        Privacy Policy
+       </a>
+       <a href="/legal/refund" class="text-lg hover:text-gray-300 transition-colors">
+        Refunds
+       </a>
+      </div>
+     </div>
+    </footer>
+   </main>
+  </div>
+</div>

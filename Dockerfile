@@ -29,6 +29,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Set Node memory limit
+ENV NODE_OPTIONS="--max-old-space-size=8192"
+
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build

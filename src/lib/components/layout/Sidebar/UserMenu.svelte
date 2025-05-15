@@ -9,6 +9,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { userSignOut } from '$lib/apis/auths';
+	import { getPolychatAppUrl } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -37,6 +38,50 @@
 			align="start"
 			transition={(e) => fade(e, { duration: 100 })}
 		>
+			<button
+				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+				on:click={() => {
+					// Create a form and submit it with POST
+					const form = document.createElement('form');
+					form.method = 'POST';
+
+					// Use the getPolychatAppUrl function to get the URL from the config store
+					form.action = `${getPolychatAppUrl()}/api-keys`;
+
+					// Explicitly add the token to the form
+					const tokenInput = document.createElement('input');
+					tokenInput.type = 'hidden';
+					tokenInput.name = 'token';
+					tokenInput.value = localStorage.token || '';
+					form.appendChild(tokenInput);
+
+					document.body.appendChild(form);
+					form.submit();
+
+					show = false;
+
+					if ($mobile) {
+						showSidebar.set(false);
+					}
+				}}
+			>
+				<div class=" self-center mr-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="w-4 h-4"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M8 7a5 5 0 113.61 4.804l-1.903 1.903A1 1 0 019 14H8v1a1 1 0 01-1 1H6v1a1 1 0 01-1 1H3a1 1 0 01-1-1v-2a1 1 0 01.293-.707L8.196 8.39A5.002 5.002 0 018 7zm5-3a.75.75 0 000 1.5A1.5 1.5 0 0114.5 7 .75.75 0 0016 7a3 3 0 00-3-3z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</div>
+				<div class=" self-center truncate">{$i18n.t('API Keys')}</div>
+			</button>
+
 			<button
 				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {

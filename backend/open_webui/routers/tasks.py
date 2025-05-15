@@ -642,16 +642,26 @@ async def generate_moa_response(
             detail="Model not found",
         )
 
+    # TODO: Allow configuring MOA model separately.
+    task_model_id = "Gemini 2.5 Pro"
+
+    log.info(f"generating MOA model {task_model_id} for user {user.email} ")
+
     template = DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE
+
+    responses = form_data["responses"]
+    formatted_responses = ""
+    for i, response in enumerate(responses):
+        formatted_responses += f"Response #{i+1}:\\n{response}\\n\\n"
 
     content = moa_response_generation_template(
         template,
         form_data["prompt"],
-        form_data["responses"],
+        formatted_responses.strip(),
     )
 
     payload = {
-        "model": model_id,
+        "model": task_model_id,
         "messages": [{"role": "user", "content": content}],
         "stream": form_data.get("stream", False),
         "metadata": {

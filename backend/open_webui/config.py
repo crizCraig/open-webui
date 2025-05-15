@@ -916,6 +916,16 @@ ENABLE_SIGNUP = PersistentConfig(
     ),
 )
 
+ENABLE_PASSWORD_SIGNUPS = PersistentConfig(
+    "ENABLE_PASSWORD_SIGNUPS",
+    "ui.enable_password_signups",
+    (
+        False
+        if not WEBUI_AUTH
+        else os.environ.get("ENABLE_PASSWORD_SIGNUPS", "True").lower() == "true"
+    ),
+)
+
 ENABLE_LOGIN_FORM = PersistentConfig(
     "ENABLE_LOGIN_FORM",
     "ui.ENABLE_LOGIN_FORM",
@@ -1545,11 +1555,12 @@ DEFAULT_EMOJI_GENERATION_PROMPT_TEMPLATE = """Your task is to reflect the speake
 
 Message: ```{{prompt}}```"""
 
-DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE = """You have been provided with a set of responses from various models to the latest user query: "{{prompt}}"
+DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE = """We want to highlight similarities and discrepancies between the responses. Be sure to include the similar parts and differing parts from both models verbatim, ALWAYS PROVIDING SPECIFIC QUOTES FROM THE ORIGINAL RESPONSES. Here is the initial query that elicited the responses: "{{prompt}}"
 
-Your task is to synthesize these responses into a single, high-quality response. It is crucial to critically evaluate the information provided in these responses, recognizing that some of it may be biased or incorrect. Your response should not simply replicate the given answers but should offer a refined, accurate, and comprehensive reply to the instruction. Ensure your response is well-structured, coherent, and adheres to the highest standards of accuracy and reliability.
+Responses from models: {{responses}}
 
-Responses from models: {{responses}}"""
+Again, highlight any similarities and discrepancies between the responses. Be sure to include the similar parts and differing parts from both models verbatim, ALWAYS PROVIDING SPECIFIC QUOTES FROM THE ORIGINAL RESPONSES. Provide one section for similarities and one section for discrepancies.
+"""
 
 
 ####################################
