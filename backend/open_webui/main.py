@@ -1345,6 +1345,7 @@ async def get_app_config(request: Request):
             "enable_password_signups": app.state.config.ENABLE_PASSWORD_SIGNUPS,
             "enable_login_form": app.state.config.ENABLE_LOGIN_FORM,
             "enable_websocket": ENABLE_WEBSOCKET_SUPPORT,
+            "enable_admin_chat_access": ENABLE_ADMIN_CHAT_ACCESS,
             **(
                 {
                     "enable_direct_connections": app.state.config.ENABLE_DIRECT_CONNECTIONS,
