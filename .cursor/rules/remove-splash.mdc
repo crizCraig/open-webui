@@ -1,0 +1,16 @@
+---
+description: Removing splash loading screen from pages
+globs: 
+alwaysApply: false
+---
+This section in src/app.html does this
+```
+				// Immediately hide splash screen
+				if (window.location.pathname.includes('/chatgpt-alternative') || 
+				    window.location.pathname.includes('/h') || 
+				    window.location.pathname.includes('/pricing') || 
+					window.location.pathname.includes('/api-pricing') || 
+				    window.location.pathname.includes('/legal')) {
+					document.getElementById('splash-screen').style.display = 'none';
+				}
+```

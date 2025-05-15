@@ -867,6 +867,10 @@
         <p class="text-gray-300">Yes! If you provide your own API keys for providers like OpenAI, Anthropic, Groq, etc., you'll only be charged for
          messages, not tokens, since the provider bills you directly for token usage. When using your own API keys, we offer a different pricing structure with unlimited tokens but a limit on messages per 2-week period. You can toggle between the two pricing modes at the top of this page to compare.</p>
        </div>
+       <div class="bg-[#1e212e] p-6 rounded-lg">
+        <h3 class="text-xl font-medium text-white mb-2">Do you offer an API?</h3>
+        <p class="text-gray-300">Yes! We offer an OpenAI-compatible API with competitive pricing. Check out our <a href="/api-pricing" class="text-emerald-400 hover:text-emerald-300 transition-colors">API pricing page</a> for more details.</p>
+       </div>
        {#if useOwnApiKeys}
        <div class="bg-[#1e212e] p-6 rounded-lg">
         <h3 class="text-xl font-medium text-white mb-2">How are message limits calculated?</h3>
