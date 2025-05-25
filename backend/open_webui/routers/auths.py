@@ -568,10 +568,13 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 @router.get("/signout")
 async def signout(request: Request, response: Response):
     response.delete_cookie("token")
+    oidc_logout_failed_detail = None
 
     if ENABLE_OAUTH_SIGNUP.value:
         oauth_id_token = request.cookies.get("oauth_id_token")
         if oauth_id_token:
+            # Proactively set the cookie for deletion in the browser's response
+            response.delete_cookie("oauth_id_token")
             try:
                 async with ClientSession() as session:
                     async with session.get(OPENID_PROVIDER_URL.value) as resp:
@@ -579,33 +582,45 @@ async def signout(request: Request, response: Response):
                             openid_data = await resp.json()
                             logout_url = openid_data.get("end_session_endpoint")
                             if logout_url:
-                                response.delete_cookie("oauth_id_token")
+                                # If OIDC logout URL is available, redirect there.
+                                # The response headers will include the cookie deletions.
                                 return RedirectResponse(
                                     headers=response.headers,
                                     url=f"{logout_url}?id_token_hint={oauth_id_token}",
                                 )
-                            # If logout_url is not found, it will fall through to the generic error.
-                            # Consider adding specific logging/error handling here if OpenID provider is expected to always return a logout_url.
-                            log.warning(f"OpenID provider ({OPENID_PROVIDER_URL.value}) did not return an end_session_endpoint.")
+                            else:
+                                # OIDC provider didn't provide a logout URL
+                                warning_msg = f"OpenID provider ({OPENID_PROVIDER_URL.value}) did not return an end_session_endpoint."
+                                log.warning(warning_msg)
+                                oidc_logout_failed_detail = "OpenID provider did not provide a logout URL."
                         else:
-                            log.error(f"Failed to fetch OpenID configuration from {OPENID_PROVIDER_URL.value}: {resp.status} {await resp.text()}")
-                            raise HTTPException(
-                                status_code=resp.status,
-                                detail=f"Failed to fetch OpenID configuration. Status: {resp.status}",
+                            # Failed to fetch OIDC configuration
+                            error_text = await resp.text()
+                            log.error(
+                                f"Failed to fetch OpenID configuration from {OPENID_PROVIDER_URL.value}: {resp.status} {error_text}"
+                            )
+                            oidc_logout_failed_detail = (
+                                f"Failed to fetch OpenID configuration. Status: {resp.status}"
                             )
             except Exception as e:
+                # Catch any other exception during OIDC communication
                 log.error(f"OpenID signout error: {str(e)}")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to sign out from the OpenID provider.",
+                oidc_logout_failed_detail = (
+                    "Failed to sign out from the OpenID provider due to an internal error."
                 )
 
     if WEBUI_AUTH_SIGNOUT_REDIRECT_URL:
+        # If a redirect URL is configured, use it.
+        # The response headers will include any cookie deletions set earlier.
         return RedirectResponse(
             headers=response.headers,
             url=WEBUI_AUTH_SIGNOUT_REDIRECT_URL,
         )
 
+    if oidc_logout_failed_detail:
+        # If OIDC logout failed and no other redirect occurred
+        return {"status": False, "detail": oidc_logout_failed_detail}
+        
     return {"status": True}
 
 
