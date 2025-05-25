@@ -227,18 +227,39 @@
     </section>
 
     <!-- Footer -->
-    <footer class="bg-[#0f1117] py-8">
+    <footer class="bg-[#0c0e14] py-12 border-t border-gray-800/30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-center space-x-6 text-gray-400">
-                <a href="mailto:support@polychat.co" class="text-lg hover:text-gray-300 transition-colors">
-                    Contact Us
-                </a>
-                <a href="/legal/privacy" class="text-lg hover:text-gray-300 transition-colors">
-                    Privacy Policy
-                </a>
-                <a href="/legal/refund" class="text-lg hover:text-gray-300 transition-colors">
-                    Refunds
-                </a>
+            <div class="flex flex-col items-center space-y-8">
+                <div class="flex flex-wrap justify-center gap-10 text-gray-300">
+                    <a href="mailto:hi@polychat.co" class="text-lg group flex items-center hover:text-emerald-400 transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 group-hover:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        hi@polychat.co
+                    </a>
+                    <a href="https://x.com/PolyChatCo" target="_blank" rel="noopener noreferrer" class="text-lg group flex items-center hover:text-emerald-400 transition-colors duration-300">
+                        <svg class="w-5 h-5 mr-2 group-hover:text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                        </svg>
+                        @PolyChatCo
+                    </a>
+                </div>
+                
+                <div class="h-px w-24 bg-gradient-to-r from-transparent via-gray-600/40 to-transparent"></div>
+                
+                <div class="flex flex-wrap justify-center gap-8 text-gray-500 text-sm">
+                    <a href="/legal/privacy" class="hover:text-gray-300 transition-colors duration-300">
+                        Privacy Policy
+                    </a>
+                    <a href="/legal/refund" class="hover:text-gray-300 transition-colors duration-300">
+                        Refunds
+                    </a>
+                </div>
+                
+                <div class="text-xs text-gray-600 mt-2">
+                    © {new Date().getFullYear()} PolychatCo
+                </div>
             </div>
         </div>
     </footer>
