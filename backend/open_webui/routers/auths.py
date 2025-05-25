@@ -584,10 +584,14 @@ async def signout(request: Request, response: Response):
                                     headers=response.headers,
                                     url=f"{logout_url}?id_token_hint={oauth_id_token}",
                                 )
+                            # If logout_url is not found, it will fall through to the generic error.
+                            # Consider adding specific logging/error handling here if OpenID provider is expected to always return a logout_url.
+                            log.warning(f"OpenID provider ({OPENID_PROVIDER_URL.value}) did not return an end_session_endpoint.")
                         else:
+                            log.error(f"Failed to fetch OpenID configuration from {OPENID_PROVIDER_URL.value}: {resp.status} {await resp.text()}")
                             raise HTTPException(
                                 status_code=resp.status,
-                                detail="Failed to fetch OpenID configuration",
+                                detail=f"Failed to fetch OpenID configuration. Status: {resp.status}",
                             )
             except Exception as e:
                 log.error(f"OpenID signout error: {str(e)}")
