@@ -82,6 +82,35 @@
 				<div class=" self-center truncate">{$i18n.t('API Keys')}</div>
 			</button>
 
+			{#if $user}
+				<a
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					href={`${getPolychatAppUrl()}/payment?user_id=${$user.id}&user_email=${$user.email}`}
+					target="_blank"
+					rel="noopener noreferrer"
+					on:click={() => {
+						show = false;
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}}
+				>
+					<div class=" self-center mr-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="w-4 h-4"
+						>
+							<path
+								d="M2.25 4.5c0-.83.67-1.5 1.5-1.5h12.5c.83 0 1.5.67 1.5 1.5v11c0 .83-.67 1.5-1.5 1.5H3.75c-.83 0-1.5-.67-1.5-1.5v-11Zm1.5 0V6h12.5V4.5H3.75ZM3.75 8v8h12.5V8H3.75Z"
+							/>
+						</svg>
+					</div>
+					<div class=" self-center truncate">{$i18n.t('Billing')}</div>
+				</a>
+			{/if}
+
 			<button
 				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {
