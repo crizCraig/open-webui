@@ -168,6 +168,36 @@ def add_or_update_user_message(content: str, messages: list[dict]):
     return messages
 
 
+def update_last_user_message_content(
+    content: str, messages: list[dict]
+) -> list[dict]:
+    """
+    Updates the last user message in the messages list with the given content.
+    If no user message exists, creates a new one at the end.
+    
+    :param content: The content to prepend to the last user message.
+    :param messages: The list of message dictionaries.
+    :return: The updated list of message dictionaries.
+    """
+    # Find the last user message by iterating in reverse
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i]["role"] == "user":
+            if isinstance(messages[i]["content"], list):
+                # Handle multimodal content
+                for item in messages[i]["content"]:
+                    if item["type"] == "text":
+                        item["text"] = f"{content}\n{item['text']}"
+                        break
+            else:
+                # Handle text content
+                messages[i]["content"] = f"{content}\n{messages[i]['content']}"
+            return messages
+    
+    # If no user message found, append a new one
+    messages.append({"role": "user", "content": content})
+    return messages
+
+
 def append_or_update_assistant_message(content: str, messages: list[dict]):
     """
     Adds a new assistant message at the end of the messages list
