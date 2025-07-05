@@ -324,28 +324,40 @@ export const userSignUp = async (
 	return res;
 };
 
-export const userSignOut = async () => {
-	let error = null;
-
-	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/signout`, {
-		method: 'GET',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		credentials: 'include'
-	})
-		.then(async (res) => {
-			if (!res.ok) throw await res.json();
-			return res;
-		})
-		.catch((err) => {
-			console.log(err);
-			error = err.detail;
-			return null;
+export const userSignOut = async (): Promise<void> => {
+	try {
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auths/signout`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include'
 		});
 
-	if (error) {
-		throw error;
+		if (!response.ok) {
+			let errorDetail = `Sign out failed with server status: ${response.status}`;
+			try {
+				const errorData = await response.json();
+				// Attempt to get a meaningful message from backend's error structure
+				if (errorData && typeof errorData === 'object' && errorData.detail) {
+					errorDetail = String(errorData.detail);
+				} else if (typeof errorData === 'string' && errorData) {
+					errorDetail = errorData;
+				} else {
+					errorDetail = `Sign out failed with server status: ${response.status}, response: ${JSON.stringify(errorData)}`;
+				}
+			} catch (jsonError) {
+				// Fallback if parsing error response as JSON fails
+				errorDetail = response.statusText || `Sign out failed with server status: ${response.status}`;
+				console.error('Failed to parse sign out error response as JSON:', jsonError);
+			}
+			console.error('User sign out failed on server:', errorDetail);
+		}
+		// If response.ok, server-side sign-out was successful or handled by server.
+		// Frontend will proceed with local cleanup regardless of the outcome of this block.
+	} catch (networkOrOtherError) {
+		// Catches network errors or other unexpected errors during the fetch operation itself
+		console.error('Error during user sign out HTTP request:', networkOrOtherError);
 	}
 };
 

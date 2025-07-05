@@ -4,6 +4,7 @@ import time
 import datetime
 import logging
 from aiohttp import ClientSession
+import traceback
 
 from open_webui.models.auths import (
     AddUserForm,
@@ -32,7 +33,7 @@ from open_webui.env import (
     SRC_LOG_LEVELS,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response, JSONResponse
 from open_webui.config import OPENID_PROVIDER_URL, ENABLE_OAUTH_SIGNUP, ENABLE_LDAP
 from pydantic import BaseModel
 
@@ -573,41 +574,45 @@ async def signout(request: Request, response: Response):
     if ENABLE_OAUTH_SIGNUP.value:
         oauth_id_token = request.cookies.get("oauth_id_token")
         if oauth_id_token:
-            # Proactively set the cookie for deletion in the browser's response
             response.delete_cookie("oauth_id_token")
-            try:
-                async with ClientSession() as session:
-                    async with session.get(OPENID_PROVIDER_URL.value) as resp:
-                        if resp.status == 200:
-                            openid_data = await resp.json()
-                            logout_url = openid_data.get("end_session_endpoint")
-                            if logout_url:
-                                # If OIDC logout URL is available, redirect there.
-                                # The response headers will include the cookie deletions.
-                                return RedirectResponse(
-                                    headers=response.headers,
-                                    url=f"{logout_url}?id_token_hint={oauth_id_token}",
-                                )
+
+            provider_url = OPENID_PROVIDER_URL.value
+            if not provider_url:
+                log.error("OPENID_PROVIDER_URL is not configured or is empty.")
+                oidc_logout_failed_detail = "OpenID provider URL is not configured."
+            else:
+                try:
+                    async with ClientSession() as session:
+                        async with session.get(provider_url) as resp:
+                            if resp.status == 200:
+                                openid_data = await resp.json()
+                                logout_url = openid_data.get("end_session_endpoint")
+                                if logout_url:
+                                    return RedirectResponse(
+                                        headers=response.headers,
+                                        url=f"{logout_url}?id_token_hint={oauth_id_token}",
+                                    )
+                                else:
+                                    warning_msg = f"OpenID provider ({provider_url}) did not return an end_session_endpoint."
+                                    log.warning(warning_msg)
+                                    oidc_logout_failed_detail = "OpenID provider did not provide a logout URL."
                             else:
-                                # OIDC provider didn't provide a logout URL
-                                warning_msg = f"OpenID provider ({OPENID_PROVIDER_URL.value}) did not return an end_session_endpoint."
-                                log.warning(warning_msg)
-                                oidc_logout_failed_detail = "OpenID provider did not provide a logout URL."
-                        else:
-                            # Failed to fetch OIDC configuration
-                            error_text = await resp.text()
-                            log.error(
-                                f"Failed to fetch OpenID configuration from {OPENID_PROVIDER_URL.value}: {resp.status} {error_text}"
-                            )
-                            oidc_logout_failed_detail = (
-                                f"Failed to fetch OpenID configuration. Status: {resp.status}"
-                            )
-            except Exception as e:
-                # Catch any other exception during OIDC communication
-                log.error(f"OpenID signout error: {str(e)}")
-                oidc_logout_failed_detail = (
-                    "Failed to sign out from the OpenID provider due to an internal error."
-                )
+                                error_text = await resp.text()
+                                log.error(
+                                    f"Failed to fetch OpenID configuration from {provider_url}: {resp.status} {error_text}"
+                                )
+                                oidc_logout_failed_detail = (
+                                    f"Failed to fetch OpenID configuration. Status: {resp.status}"
+                                )
+                except Exception as e:
+                    detailed_error_log = (
+                        f"OpenID signout error: type={type(e)}, repr={repr(e)}, str='{str(e)}'. "
+                        f"Traceback: {traceback.format_exc()}"
+                    )
+                    log.error(detailed_error_log)
+                    oidc_logout_failed_detail = (
+                        "Failed to sign out from the OpenID provider due to an internal error."
+                    )
 
     if WEBUI_AUTH_SIGNOUT_REDIRECT_URL:
         # If a redirect URL is configured, use it.
@@ -618,10 +623,9 @@ async def signout(request: Request, response: Response):
         )
 
     if oidc_logout_failed_detail:
-        # If OIDC logout failed and no other redirect occurred
-        return {"status": False, "detail": oidc_logout_failed_detail}
+        return JSONResponse(content={"status": False, "detail": oidc_logout_failed_detail}, headers=response.headers)
         
-    return {"status": True}
+    return JSONResponse(content={"status": True}, headers=response.headers)
 
 
 ############################
