@@ -1337,12 +1337,14 @@
 
 		// Create user message
 		let userMessageId = uuidv4();
+		
+		// Keep the original prompt for UI display (clean content)
 		let userMessage = {
 			id: userMessageId,
 			parentId: messages.length !== 0 ? messages.at(-1).id : null,
 			childrenIds: [],
 			role: 'user',
-			content: userPrompt,
+			content: userPrompt, // Store clean content for UI
 			files: _files.length > 0 ? _files : undefined,
 			timestamp: Math.floor(Date.now() / 1000), // Unix epoch
 			models: selectedModels
@@ -1543,6 +1545,37 @@
 			params?.stream_response ??
 			true;
 
+		// Helper function to generate source content for files
+		const generateSourceContent = (files) => {
+			if (!files || files.length === 0) return '';
+			
+			// Find the highest source ID used in previous messages
+			let maxSourceId = 0;
+			const allMessages = createMessagesList(_history, responseMessageId);
+			allMessages.forEach(msg => {
+				if (msg.content && typeof msg.content === 'string') {
+					const sourceMatches = msg.content.match(/<source id="(\d+)">/g);
+					if (sourceMatches) {
+						sourceMatches.forEach(match => {
+							const id = parseInt(match.match(/id="(\d+)"/)[1]);
+							if (id > maxSourceId) {
+								maxSourceId = id;
+							}
+						});
+					}
+				}
+			});
+			
+			let sourcesContent = '';
+			files.forEach((file, index) => {
+				if (file.type === 'file' && file.id && file.file?.data?.content) {
+					sourcesContent += `<source id="${maxSourceId + index + 1}" name="${file.name}">${file.file?.data?.content}</source>\n`;
+				}
+			});
+			
+			return sourcesContent;
+		};
+
 		let messages = [
 			params?.system || $settings.system || (responseMessage?.userContext ?? null)
 				? {
@@ -1563,10 +1596,20 @@
 						}`
 					}
 				: undefined,
-			...createMessagesList(_history, responseMessageId).map((message) => ({
-				...message,
-				content: processDetails(message.content)
-			}))
+			...createMessagesList(_history, responseMessageId).map((message) => {
+				// For user messages, add source content when sending to backend
+				if (message.role === 'user' && message.files) {
+					const sourcesContent = generateSourceContent(message.files);
+					return {
+						...message,
+						content: sourcesContent ? `${sourcesContent}\n${processDetails(message.content)}` : processDetails(message.content)
+					};
+				}
+				return {
+					...message,
+					content: processDetails(message.content)
+				};
+			})
 		].filter((message) => message);
 
 		messages = messages

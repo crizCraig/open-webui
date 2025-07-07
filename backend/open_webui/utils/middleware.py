@@ -860,45 +860,29 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     except Exception as e:
         log.exception(e)
 
-    # If context is not empty, insert it into the messages
+    # If context is not empty, add citation instructions to system message
     if len(sources) > 0:
-        context_string = ""
-        citation_idx = {}
-        for source in sources:
-            if "document" in source:
-                for doc_context, doc_meta in zip(
-                    source["document"], source["metadata"]
-                ):
-                    citation_id = (
-                        doc_meta.get("source", None)
-                        or source.get("source", {}).get("id", None)
-                        or "N/A"
-                    )
-                    if citation_id not in citation_idx:
-                        citation_idx[citation_id] = len(citation_idx) + 1
-                    context_string += f'<source id="{citation_idx[citation_id]}">{doc_context}</source>\n'
+        # Add citation instructions to system message when files are present
+        citation_instructions = """### Citation Guidelines:
+When responding to user queries, incorporate inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
 
-        context_string = context_string.strip()
-        prompt = get_last_user_message(form_data["messages"])
+- **Only include inline citations using [id] (e.g., [1], [2]) when the <source> tag includes an id attribute.**
+- Do not cite if the <source> tag does not contain an id attribute.
+- Do not use XML tags in your response.
+- Ensure citations are concise and directly related to the information provided.
 
-        if prompt is None:
-            raise Exception("No user message found")
-        if (
-            request.app.state.config.RELEVANCE_THRESHOLD == 0
-            and context_string.strip() == ""
-        ):
-            log.debug(
-                f"With a 0 relevancy threshold for RAG, the context cannot be empty"
-            )
+### Example of Citation:
+If the user asks about a specific topic and the information is found in a source with a provided id attribute, the response should include the citation like in the following example:
+* "According to the study, the proposed method increases efficiency by 20% [1]."
 
-        # Update the latest user message with RAG context
-        # This ensures old messages remain unchanged
-        form_data["messages"] = update_last_user_message_content(
-            rag_template(
-                request.app.state.config.RAG_TEMPLATE, context_string, prompt
-            ),
-            form_data["messages"],
+Provide clear and direct responses to user queries, including inline citations in the format [id] only when the <source> tag with id attribute is present in the context."""
+
+        form_data["messages"] = add_or_update_system_message(
+            citation_instructions, form_data["messages"]
         )
+        
+        # Note: Source content is now built on the frontend and included in the message content
+        # No need to build context_string here as it's already in the user message
 
     # If there are citations, add them to the data_items
     sources = [
