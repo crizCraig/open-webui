@@ -28,7 +28,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
-from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
 from open_webui.config import (
     WHISPER_MODEL_AUTO_UPDATE,
     WHISPER_MODEL_DIR,
@@ -321,6 +321,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                                 "X-OpenWebUI-User-Id": user.id,
                                 "X-OpenWebUI-User-Email": user.email,
                                 "X-OpenWebUI-User-Role": user.role,
+                                "X-OpenWebUI-Call-Type": get_call_type(request),
                             }
                             if ENABLE_FORWARD_USER_INFO_HEADERS
                             else {}

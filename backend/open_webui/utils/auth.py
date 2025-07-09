@@ -153,6 +153,19 @@ def get_http_authorization_cred(auth_header: Optional[str]):
         return None
 
 
+def get_call_type(request: Request) -> str:
+    """
+    Determine if this is an API call or UI call based on the token type.
+    API calls use tokens that start with "sk-" (API keys)
+    UI calls use JWT tokens (don't start with "sk-")
+    """
+    if hasattr(request.state, 'token') and request.state.token:
+        token = request.state.token.credentials
+        if token and token.startswith("sk-"):
+            return "API"
+    return "UI"
+
+
 def get_current_user(
     request: Request,
     background_tasks: BackgroundTasks,

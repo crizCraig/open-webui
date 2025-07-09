@@ -44,7 +44,7 @@ from open_webui.utils.payload import (
     apply_model_params_to_body_openai,
     apply_model_system_prompt_to_body,
 )
-from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
 from open_webui.utils.access_control import has_access
 
 
@@ -72,7 +72,7 @@ log.setLevel(SRC_LOG_LEVELS["OLLAMA"])
 ##########################################
 
 
-async def send_get_request(url, key=None, user: UserModel = None):
+async def send_get_request(url, key=None, user: UserModel = None, request: Request = None):
     timeout = aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST)
     try:
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
@@ -87,8 +87,9 @@ async def send_get_request(url, key=None, user: UserModel = None):
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
-                        if ENABLE_FORWARD_USER_INFO_HEADERS and user
+                        if ENABLE_FORWARD_USER_INFO_HEADERS and user and request
                         else {}
                     ),
                 },
@@ -118,6 +119,7 @@ async def send_post_request(
     key: Optional[str] = None,
     content_type: Optional[str] = None,
     user: UserModel = None,
+    request: Request = None,
 ):
 
     r = None
@@ -138,8 +140,9 @@ async def send_post_request(
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
-                    if ENABLE_FORWARD_USER_INFO_HEADERS and user
+                    if ENABLE_FORWARD_USER_INFO_HEADERS and user and request
                     else {}
                 ),
             },
@@ -181,6 +184,9 @@ async def send_post_request(
             status_code=r.status if r else 500,
             detail=detail if detail else "Open WebUI: Server Connection Error",
         )
+    finally:
+        if r:
+            await cleanup_response(r, session)
 
 
 def get_api_key(idx, url, configs):
@@ -213,7 +219,7 @@ class ConnectionVerificationForm(BaseModel):
 
 @router.post("/verify")
 async def verify_connection(
-    form_data: ConnectionVerificationForm, user=Depends(get_admin_user)
+    request: Request, form_data: ConnectionVerificationForm, user=Depends(get_admin_user)
 ):
     url = form_data.url
     key = form_data.key
@@ -233,6 +239,7 @@ async def verify_connection(
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS and user
                         else {}
@@ -309,7 +316,7 @@ async def get_all_models(request: Request, user: UserModel = None):
             if (str(idx) not in request.app.state.config.OLLAMA_API_CONFIGS) and (
                 url not in request.app.state.config.OLLAMA_API_CONFIGS  # Legacy support
             ):
-                request_tasks.append(send_get_request(f"{url}/api/tags", user=user))
+                request_tasks.append(send_get_request(f"{url}/api/tags", user=user, request=request))
             else:
                 api_config = request.app.state.config.OLLAMA_API_CONFIGS.get(
                     str(idx),
@@ -323,7 +330,7 @@ async def get_all_models(request: Request, user: UserModel = None):
 
                 if enable:
                     request_tasks.append(
-                        send_get_request(f"{url}/api/tags", key, user=user)
+                        send_get_request(f"{url}/api/tags", key, user=user, request=request)
                     )
                 else:
                     request_tasks.append(asyncio.ensure_future(asyncio.sleep(0, None)))
@@ -432,6 +439,7 @@ async def get_ollama_tags(
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS and user
                         else {}
@@ -553,6 +561,7 @@ async def get_ollama_loaded_models(request: Request, user=Depends(get_verified_u
                     ),  # Legacy support
                 ).get("key", None),
                 user=user,
+                request=request,
             )
             for idx, url in enumerate(request.app.state.config.OLLAMA_BASE_URLS)
         ]
@@ -586,6 +595,7 @@ async def pull_model(
         payload=json.dumps(payload),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 
@@ -623,6 +633,7 @@ async def push_model(
         payload=form_data.model_dump_json(exclude_none=True).encode(),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 
@@ -650,6 +661,7 @@ async def create_model(
         payload=form_data.model_dump_json(exclude_none=True).encode(),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 
@@ -694,6 +706,7 @@ async def copy_model(
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS and user
                     else {}
@@ -760,6 +773,7 @@ async def delete_model(
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS and user
                     else {}
@@ -819,6 +833,7 @@ async def show_model_info(
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS and user
                     else {}
@@ -1077,6 +1092,7 @@ async def generate_completion(
         payload=form_data.model_dump_json(exclude_none=True).encode(),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 
@@ -1207,6 +1223,7 @@ async def generate_chat_completion(
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         content_type="application/x-ndjson",
         user=user,
+        request=request,
     )
 
 
@@ -1310,6 +1327,7 @@ async def generate_openai_completion(
         stream=payload.get("stream", False),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 
@@ -1389,6 +1407,7 @@ async def generate_openai_chat_completion(
         stream=payload.get("stream", False),
         key=get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS),
         user=user,
+        request=request,
     )
 
 

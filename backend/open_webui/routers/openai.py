@@ -41,7 +41,7 @@ from open_webui.utils.misc import (
     convert_logit_bias_input_to_json,
 )
 
-from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
 from open_webui.utils.access_control import has_access
 
 
@@ -56,7 +56,7 @@ log.setLevel(SRC_LOG_LEVELS["OPENAI"])
 ##########################################
 
 
-async def send_get_request(url, key=None, user: UserModel = None):
+async def send_get_request(url, key=None, user: UserModel = None, request: Request = None):
     timeout = aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST)
     try:
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
@@ -70,8 +70,9 @@ async def send_get_request(url, key=None, user: UserModel = None):
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
-                        if ENABLE_FORWARD_USER_INFO_HEADERS and user
+                        if ENABLE_FORWARD_USER_INFO_HEADERS and user and request
                         else {}
                     ),
                 },
@@ -229,6 +230,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS
                         else {}
@@ -298,6 +300,7 @@ async def get_all_models_responses(request: Request, user: UserModel) -> list:
                     f"{url}/models",
                     request.app.state.config.OPENAI_API_KEYS[idx],
                     user=user,
+                    request=request,
                 )
             )
         else:
@@ -318,6 +321,7 @@ async def get_all_models_responses(request: Request, user: UserModel) -> list:
                             f"{url}/models",
                             request.app.state.config.OPENAI_API_KEYS[idx],
                             user=user,
+                            request=request,
                         )
                     )
                 else:
@@ -478,6 +482,7 @@ async def get_models(
                                 "X-OpenWebUI-User-Id": user.id,
                                 "X-OpenWebUI-User-Email": user.email,
                                 "X-OpenWebUI-User-Role": user.role,
+                                "X-OpenWebUI-Call-Type": get_call_type(request),
                             }
                             if ENABLE_FORWARD_USER_INFO_HEADERS
                             else {}
@@ -539,7 +544,7 @@ class ConnectionVerificationForm(BaseModel):
 
 @router.post("/verify")
 async def verify_connection(
-    form_data: ConnectionVerificationForm, user=Depends(get_admin_user)
+    request: Request, form_data: ConnectionVerificationForm, user=Depends(get_admin_user)
 ):
     url = form_data.url
     key = form_data.key
@@ -560,6 +565,7 @@ async def verify_connection(
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-Call-Type": get_call_type(request),
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS
                         else {}
@@ -723,6 +729,7 @@ async def generate_chat_completion(
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS
                     else {}
@@ -803,6 +810,7 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
                         "X-OpenWebUI-User-Id": user.id,
                         "X-OpenWebUI-User-Email": user.email,
                         "X-OpenWebUI-User-Role": user.role,
+                        "X-OpenWebUI-Call-Type": get_call_type(request),
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS
                     else {}
