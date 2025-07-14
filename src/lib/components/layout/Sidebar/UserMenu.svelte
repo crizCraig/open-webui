@@ -79,7 +79,7 @@
 						/>
 					</svg>
 				</div>
-				<div class=" self-center truncate">{$i18n.t('API Keys')}</div>
+				<div class=" self-center truncate">{$i18n.t('Provider API Keys (BYOK)')}</div>
 			</button>
 
 			{#if $user}
