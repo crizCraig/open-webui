@@ -166,6 +166,35 @@ def get_call_type(request: Request) -> str:
     return "UI"
 
 
+def get_forwarded_headers(request: Request, user=None) -> dict:
+    """
+    Get headers to forward to backend services, including:
+    - X-OpenWebUI user info headers
+    - X-PolyChat headers from the incoming request
+    """
+    headers = {}
+    
+    # Add X-OpenWebUI headers if user info forwarding is enabled
+    if user and hasattr(request.app.state, 'config'):
+        from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS
+        if ENABLE_FORWARD_USER_INFO_HEADERS:
+            headers.update({
+                "X-OpenWebUI-User-Name": user.name,
+                "X-OpenWebUI-User-Id": user.id,
+                "X-OpenWebUI-User-Email": user.email,
+                "X-OpenWebUI-User-Role": user.role,
+                "X-OpenWebUI-Call-Type": get_call_type(request),
+            })
+    
+    # Forward any X-PolyChat headers from the incoming request
+    if hasattr(request, 'headers'):
+        for header_name, header_value in request.headers.items():
+            if header_name.lower().startswith('x-polychat-'):
+                headers[header_name] = header_value
+    
+    return headers
+
+
 def get_current_user(
     request: Request,
     background_tasks: BackgroundTasks,

@@ -14,7 +14,7 @@ from open_webui.config import CACHE_DIR
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS, SRC_LOG_LEVELS
 from open_webui.routers.files import upload_file
-from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type, get_forwarded_headers
 from open_webui.utils.images.comfyui import (
     ComfyUIGenerateImageForm,
     ComfyUIWorkflow,
@@ -481,12 +481,7 @@ async def image_generations(
             )
             headers["Content-Type"] = "application/json"
 
-            if ENABLE_FORWARD_USER_INFO_HEADERS:
-                headers["X-OpenWebUI-User-Name"] = user.name
-                headers["X-OpenWebUI-User-Id"] = user.id
-                headers["X-OpenWebUI-User-Email"] = user.email
-                headers["X-OpenWebUI-User-Role"] = user.role
-                headers["X-OpenWebUI-Call-Type"] = get_call_type(request)
+            headers.update(get_forwarded_headers(request, user))
 
             data = {
                 "model": (

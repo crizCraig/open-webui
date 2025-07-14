@@ -44,7 +44,7 @@ from open_webui.utils.payload import (
     apply_model_params_to_body_openai,
     apply_model_system_prompt_to_body,
 )
-from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type, get_forwarded_headers
 from open_webui.utils.access_control import has_access
 
 
@@ -81,17 +81,7 @@ async def send_get_request(url, key=None, user: UserModel = None, request: Reque
                 headers={
                     "Content-Type": "application/json",
                     **({"Authorization": f"Bearer {key}"} if key else {}),
-                    **(
-                        {
-                            "X-OpenWebUI-User-Name": user.name,
-                            "X-OpenWebUI-User-Id": user.id,
-                            "X-OpenWebUI-User-Email": user.email,
-                            "X-OpenWebUI-User-Role": user.role,
-                            "X-OpenWebUI-Call-Type": get_call_type(request),
-                        }
-                        if ENABLE_FORWARD_USER_INFO_HEADERS and user and request
-                        else {}
-                    ),
+                    **get_forwarded_headers(request, user),
                 },
                 ssl=AIOHTTP_CLIENT_SESSION_SSL,
             ) as response:
@@ -134,17 +124,7 @@ async def send_post_request(
             headers={
                 "Content-Type": "application/json",
                 **({"Authorization": f"Bearer {key}"} if key else {}),
-                **(
-                    {
-                        "X-OpenWebUI-User-Name": user.name,
-                        "X-OpenWebUI-User-Id": user.id,
-                        "X-OpenWebUI-User-Email": user.email,
-                        "X-OpenWebUI-User-Role": user.role,
-                        "X-OpenWebUI-Call-Type": get_call_type(request),
-                    }
-                    if ENABLE_FORWARD_USER_INFO_HEADERS and user and request
-                    else {}
-                ),
+                **get_forwarded_headers(request, user),
             },
             ssl=AIOHTTP_CLIENT_SESSION_SSL,
         )
@@ -233,17 +213,7 @@ async def verify_connection(
                 f"{url}/api/version",
                 headers={
                     **({"Authorization": f"Bearer {key}"} if key else {}),
-                    **(
-                        {
-                            "X-OpenWebUI-User-Name": user.name,
-                            "X-OpenWebUI-User-Id": user.id,
-                            "X-OpenWebUI-User-Email": user.email,
-                            "X-OpenWebUI-User-Role": user.role,
-                            "X-OpenWebUI-Call-Type": get_call_type(request),
-                        }
-                        if ENABLE_FORWARD_USER_INFO_HEADERS and user
-                        else {}
-                    ),
+                    **get_forwarded_headers(request, user),
                 },
                 ssl=AIOHTTP_CLIENT_SESSION_SSL,
             ) as r:
