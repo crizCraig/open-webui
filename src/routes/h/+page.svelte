@@ -60,6 +60,18 @@
 <div class="w-full bg-[#0f1117]">
     <!-- Header -->
     <header class="fixed top-0 left-0 right-0 z-10 bg-[#0f1117]/80 backdrop-blur">
+        <!-- Announcement Banner -->
+        <div class="w-full border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-blue-500/10">
+            <a
+                href="https://nano-gpt.com/blog/context-memory"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block text-center px-4 sm:px-6 lg:px-8 py-2 text-sm sm:text-base text-emerald-300 hover:text-emerald-200 transition-colors"
+            >
+                Announcing Context Memory — available today through NanoGPT!
+            </a>
+        </div>
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex justify-end space-x-6">
                 <a href="/pricing" class="text-xl font-medium text-gray-300 hover:text-white transition-colors">
@@ -72,7 +84,7 @@
         </div>
     </header>
 
-    <main class="pt-16">
+    <main class="pt-20">
     <!-- Hero Section -->
     <section class="relative overflow-hidden border-b border-gray-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
