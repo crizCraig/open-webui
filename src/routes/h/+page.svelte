@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext } from 'svelte';
-    const i18n = getContext('i18n');
+    const i18n = getContext<{ t: (key: string) => string }>('i18n');
     import { onMount } from 'svelte';
     
     onMount(() => {
@@ -66,9 +66,9 @@
                 href="https://nano-gpt.com/blog/context-memory"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="block text-center px-4 sm:px-6 lg:px-8 py-2 text-sm sm:text-base text-emerald-300 hover:text-emerald-200 transition-colors"
+                class="block text-center px-4 sm:px-6 lg:px-8 py-3 text-lg sm:text-xl font-bold tracking-wide text-emerald-100 hover:text-white transition-colors antialiased"
             >
-                Announcing Context Memory — available today through NanoGPT!
+                Announcing Context Memory — available today on NanoGPT!
             </a>
         </div>
 
