@@ -276,9 +276,8 @@ ENABLE_API_KEY_ENDPOINT_RESTRICTIONS = PersistentConfig(
 API_KEY_ALLOWED_ENDPOINTS = PersistentConfig(
     "API_KEY_ALLOWED_ENDPOINTS",
     "auth.api_key.allowed_endpoints",
-    os.environ.get("API_KEY_ALLOWED_ENDPOINTS", ""),
+    os.environ.get("API_KEY_ALLOWED_ENDPOINTS", "/api/chat/completions, /api/models"),
 )
-
 
 JWT_EXPIRES_IN = PersistentConfig(
     "JWT_EXPIRES_IN", "auth.jwt_expiry", os.environ.get("JWT_EXPIRES_IN", "-1")
