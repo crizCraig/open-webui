@@ -350,6 +350,8 @@ from open_webui.config import (
     reset_config,
 )
 from open_webui.env import (
+    AIOHTTP_CLIENT_SESSION_SSL,
+    AIOHTTP_CLIENT_TIMEOUT,
     AUDIT_EXCLUDED_PATHS,
     AUDIT_LOG_LEVEL,
     CHANGELOG,
@@ -397,6 +399,7 @@ from open_webui.utils.auth import (
     decode_token,
     get_admin_user,
     get_verified_user,
+    get_forwarded_headers,
 )
 from open_webui.utils.plugin import install_tool_and_function_dependencies
 from open_webui.utils.oauth import OAuthManager
@@ -1128,6 +1131,87 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
 async def get_base_models(request: Request, user=Depends(get_admin_user)):
     models = await get_all_base_models(request, user=user)
     return {"data": models}
+
+
+@app.post("/api/context_memory")
+async def context_memory_proxy(
+    request: Request,
+    form_data: dict,
+    user=Depends(get_verified_user),
+):
+    """
+    Simple auth proxy for context_memory API endpoint.
+    Forwards requests to the configured OpenAI API base URL with user headers.
+    """
+    
+    # Check if OpenAI API is enabled
+    if not request.app.state.config.ENABLE_OPENAI_API:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API is not enabled",
+        )
+    
+    # Get the first configured OpenAI API URL and key
+    if not request.app.state.config.OPENAI_API_BASE_URLS or not request.app.state.config.OPENAI_API_KEYS:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API not configured",
+        )
+    
+    url = request.app.state.config.OPENAI_API_BASE_URLS[0]
+    key = request.app.state.config.OPENAI_API_KEYS[0]
+    
+    # Convert payload to JSON
+    payload = json.dumps(form_data)
+    
+    r = None
+    session = None
+    response = None
+
+    try:
+        session = aiohttp.ClientSession(
+            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+        )
+
+        r = await session.request(
+            method="POST",
+            url=f"{url}/context_memory",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                **get_forwarded_headers(request, user),
+            },
+            ssl=AIOHTTP_CLIENT_SESSION_SSL,
+        )
+
+        try:
+            response = await r.json()
+        except Exception as e:
+            log.error(e)
+            response = await r.text()
+
+        r.raise_for_status()
+        return response
+    except Exception as e:
+        log.exception(e)
+
+        detail = None
+        if isinstance(response, dict):
+            if "error" in response:
+                detail = f"{response['error']['message'] if 'message' in response['error'] else response['error']}"
+        elif isinstance(response, str):
+            detail = response
+
+        raise HTTPException(
+            status_code=r.status if r else 500,
+            detail=detail if detail else "Open WebUI: Server Connection Error",
+        )
+    finally:
+        if session:
+            if r:
+                r.close()
+            await session.close()
 
 
 @app.post("/api/chat/completions")
