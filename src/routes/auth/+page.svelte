@@ -45,8 +45,17 @@
 			await user.set(sessionUser);
 			await config.set(await getBackendConfig());
 
-			const redirectPath = querystringValue('redirect') || '/';
-			goto(redirectPath);
+			// Check if user is coming from memtree.dev
+			const memtreeParam = querystringValue('memtree');
+			const memtreeOAuth = sessionStorage.getItem('memtree_oauth');
+			if (memtreeParam === 'true' || memtreeOAuth === 'true') {
+				// Clear the stored state
+				sessionStorage.removeItem('memtree_oauth');
+				goto('/memtree-api');
+			} else {
+				const redirectPath = querystringValue('redirect') || '/';
+				goto(redirectPath);
+			}
 		}
 	};
 
@@ -139,13 +148,34 @@
 
 	onMount(async () => {
 		if ($user !== undefined) {
-			const redirectPath = querystringValue('redirect') || '/';
-			goto(redirectPath);
+			// Check if user is already logged in and coming from memtree.dev
+			const memtreeParam = querystringValue('memtree');
+			const memtreeOAuth = sessionStorage.getItem('memtree_oauth');
+			if (memtreeParam === 'true' || memtreeOAuth === 'true') {
+				// Clear the stored state
+				sessionStorage.removeItem('memtree_oauth');
+				goto('/memtree-api');
+				return;
+			} else {
+				const redirectPath = querystringValue('redirect') || '/';
+				goto(redirectPath);
+				return;
+			}
 		}
 		await checkOauthCallback();
 
 		loaded = true;
 		setLogoImage();
+
+		// Check if user is coming from memtree.dev and not logged in
+		const memtreeParam = querystringValue('memtree');
+		if (memtreeParam === 'true' && $config?.oauth?.providers?.google) {
+			// Store memtree state in sessionStorage before OAuth redirect
+			sessionStorage.setItem('memtree_oauth', 'true');
+			// Redirect immediately to Google auth for memtree users
+			window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
+			return;
+		}
 
 		if (($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false) {
 			await signInHandler();
