@@ -1,4 +1,3 @@
-import { APP_NAME } from '$lib/constants';
 import { type Writable, writable } from 'svelte/store';
 import type { ModelConfig } from '$lib/apis';
 import type { Banner } from '$lib/types';
@@ -6,8 +5,21 @@ import type { Socket } from 'socket.io-client';
 
 import emojiShortCodes from '$lib/emoji-shortcodes.json';
 
-// Backend
-export const WEBUI_NAME = writable(APP_NAME);
+// Initialize with PolyChat brand name, will be updated by backend config
+export const WEBUI_NAME = writable('PolyChat');
+
+// Safely update WEBUI_NAME with APP_NAME when available (avoids local HMR (hotreload) issues)
+// This runs asynchronously to avoid HMR race conditions
+import('$lib/constants')
+	.then(({ APP_NAME }) => {
+		// Use the value from constants.ts, but backend config will override this anyway
+		if (APP_NAME) {
+			WEBUI_NAME.set(APP_NAME);
+		}
+	})
+	.catch(() => {
+		// Ignore import errors during HMR - keep PolyChat as fallback
+	});
 export const config: Writable<Config | undefined> = writable(undefined);
 export const user: Writable<SessionUser | undefined> = writable(undefined);
 
