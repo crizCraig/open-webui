@@ -195,12 +195,13 @@
 							{/if}
 						</button>
 						
-						<button
+						<!-- Maybe enable this for a non memtree use-case -->
+						<!-- <button
 							class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition underline"
 							on:click={() => goto('/')}
 						>
 							{$i18n.t('Continue to Chat')}
-						</button>
+						</button> -->
 					</div>
 					
 					<div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-left">
