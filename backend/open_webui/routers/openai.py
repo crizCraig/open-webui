@@ -501,7 +501,10 @@ async def get_models(
                 error_detail = f"Unexpected error: {str(e)}"
                 raise HTTPException(status_code=500, detail=error_detail)
 
-    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
+    # API key users can see private models, browser users follow normal access control  
+    call_type = get_call_type(request)
+    
+    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL and call_type != "API":
         models["data"] = await get_filtered_models(models, user)
 
     return models
@@ -563,7 +566,9 @@ async def generate_chat_completion(
     user=Depends(get_verified_user),
     bypass_filter: Optional[bool] = False,
 ):
-    if BYPASS_MODEL_ACCESS_CONTROL:
+    # API key users can access private models, browser users follow normal access control
+    call_type = get_call_type(request)
+    if BYPASS_MODEL_ACCESS_CONTROL or call_type == "API":
         bypass_filter = True
 
     idx = 0

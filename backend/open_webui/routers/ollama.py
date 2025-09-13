@@ -436,7 +436,10 @@ async def get_ollama_tags(
                 detail=detail if detail else "Open WebUI: Server Connection Error",
             )
 
-    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
+    # API key users can see private models, browser users follow normal access control
+    call_type = get_call_type(request)
+    
+    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL and call_type != "API":
         models["models"] = await get_filtered_models(models, user)
 
     return models
@@ -1340,7 +1343,9 @@ async def generate_openai_chat_completion(
             payload = apply_model_system_prompt_to_body(params, payload, metadata, user)
 
         # Check if user has access to the model
-        if user.role == "user":
+        # API key users can access private models, browser users follow normal access control
+        call_type = get_call_type(request)
+        if user.role == "user" and call_type != "API":
             if not (
                 user.id == model_info.user_id
                 or has_access(

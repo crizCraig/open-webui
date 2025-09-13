@@ -394,6 +394,7 @@ from open_webui.utils.middleware import process_chat_payload, process_chat_respo
 from open_webui.utils.access_control import has_access
 
 from open_webui.utils.auth import (
+    get_call_type,
     get_license_data,
     get_http_authorization_cred,
     decode_token,
@@ -1118,7 +1119,9 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
         )
 
     # Filter out models that the user does not have access to
-    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
+    call_type = get_call_type(request)
+    
+    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL and call_type != "API":
         models = get_filtered_models(models, user)
 
     log.debug(
@@ -1237,7 +1240,11 @@ async def chat_completion(
             model_info = Models.get_model_by_id(model_id)
 
             # Check if user has access to the model
-            if not BYPASS_MODEL_ACCESS_CONTROL and user.role == "user":
+            # API key users can see private models, browser users follow normal access control
+            # from open_webui.utils.auth import get_call_type
+            call_type = get_call_type(request)
+            
+            if not BYPASS_MODEL_ACCESS_CONTROL and user.role == "user" and call_type != "API":
                 try:
                     check_model_access(user, model)
                 except Exception as e:

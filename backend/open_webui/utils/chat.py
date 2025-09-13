@@ -42,6 +42,7 @@ from open_webui.models.models import Models
 
 from open_webui.utils.plugin import load_function_module_by_id
 from open_webui.utils.models import get_all_models, check_model_access
+from open_webui.utils.auth import get_call_type
 from open_webui.utils.payload import convert_payload_openai_to_ollama
 from open_webui.utils.response import (
     convert_response_ollama_to_openai,
@@ -193,8 +194,10 @@ async def generate_chat_completion(
             request, form_data, user=user, models=models
         )
     else:
-        # Check if user has access to the model
-        if not bypass_filter and user.role == "user":
+        # Check if user has access to the model  
+        # API key users can access private models, browser users follow normal access control
+        call_type = get_call_type(request)
+        if not bypass_filter and user.role == "user" and call_type != "API":
             try:
                 check_model_access(user, model)
             except Exception as e:
