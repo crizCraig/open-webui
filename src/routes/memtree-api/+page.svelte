@@ -85,7 +85,7 @@
 				await handleAPIKeyCreation();
 			}
 		} catch (error) {
-			console.error('Memtree API page initialization error:', error);
+			console.error('PolyChat API page initialization error:', error);
 			goto('/auth?memtree=true');
 		}
 	});
@@ -104,7 +104,7 @@
 
 <svelte:head>
 	<title>
-		Memtree API Key - {webUIName}
+		PolyChat API Key - {webUIName}
 	</title>
 </svelte:head>
 
@@ -132,7 +132,7 @@
 				{#if loading}
 					<div class="flex items-center justify-center gap-3 text-xl sm:text-2xl text-center font-semibold dark:text-gray-200">
 						<div>
-							{$i18n.t('Setting up your Memtree API key...')}
+							{$i18n.t('Setting up your PolyChat API key...')}
 						</div>
 						<div>
 							<Spinner />
@@ -141,10 +141,10 @@
 				{:else}
 					<div class="mb-6">
 						<div class="text-2xl font-medium mb-2">
-							{$i18n.t('Your Memtree API Key')}
+							{$i18n.t('Your PolyChat API Key')}
 						</div>
 						<div class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-							{$i18n.t('Your API key has been created and copied to your clipboard. Use this key to connect Memtree to your AI assistant.')}
+							{$i18n.t('Your API key has been created and copied to your clipboard. Use this key to connect to our API, including MemTree memory, to your AI assistant.')}
 						</div>
 					</div>
 					
@@ -202,19 +202,6 @@
 						>
 							{$i18n.t('Continue to Chat')}
 						</button> -->
-					</div>
-					
-					<div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-left">
-						<div class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-							{$i18n.t('Next Steps:')}
-						</div>
-						<div class="text-xs text-blue-700 dark:text-blue-300">
-							<ol class="list-decimal list-inside space-y-1">
-								<li><a href="https://memtree.dev" target="_blank" class="underline hover:text-blue-600 dark:hover:text-blue-200 transition">{$i18n.t('Return to Memtree')}</a></li>
-								<li>{$i18n.t('Paste your API key when prompted')}</li>
-								<li>{$i18n.t('Start using AI-powered features in Memtree!')}</li>
-							</ol>
-						</div>
 					</div>
 				{/if}
 			</div>
