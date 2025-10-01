@@ -1227,6 +1227,12 @@ async def chat_completion(
         await get_all_models(request, user=user)
 
     model_item = form_data.pop("model_item", {})
+    log.debug(f"model_item: {model_item}")
+
+    # log request json
+    request_json = await request.json()
+    log.debug(f"request: {request_json}")
+
     tasks = form_data.pop("background_tasks", None)
 
     metadata = {}
