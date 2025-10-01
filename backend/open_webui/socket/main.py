@@ -35,6 +35,26 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["SOCKET"])
 
 
+# Cached set of user IDs active in last 6 months initialized at process start
+try:
+    LAST6MO_ACTIVE_USER_IDS = set(Users.get_user_ids_active_in_last_6_months() or [])
+except Exception as e:
+    log.error(f"Failed to initialize last 6 months active user cache: {e}")
+    LAST6MO_ACTIVE_USER_IDS = set()
+
+def get_cached_user_ids_with_current(current_user_id=None):
+    """Return union of cached 6-month-active user IDs and currently connected users, ensuring current_user_id is included."""
+    ids = set(LAST6MO_ACTIVE_USER_IDS)
+    try:
+        # Include all currently connected users from USER_POOL
+        ids |= set(USER_POOL.keys())
+    except Exception:
+        # USER_POOL may not be initialized yet at import time; ignore
+        pass
+    if current_user_id:
+        ids.add(current_user_id)
+    return list(ids)
+
 if WEBSOCKET_MANAGER == "redis":
     if WEBSOCKET_SENTINEL_HOSTS:
         mgr = socketio.AsyncRedisManager(
@@ -191,7 +211,7 @@ async def connect(sid, environ, auth):
                 USER_POOL[user.id] = [sid]
 
             # print(f"user {user.name}({user.id}) connected with session ID {sid}")
-            await sio.emit("user-list", {"user_ids": list(USER_POOL.keys())})
+            await sio.emit("user-list", {"user_ids": get_cached_user_ids_with_current(user.id)})
             await sio.emit("usage", {"models": get_models_in_use()})
 
 
@@ -224,7 +244,7 @@ async def user_join(sid, data):
 
     # print(f"user {user.name}({user.id}) connected with session ID {sid}")
 
-    await sio.emit("user-list", {"user_ids": list(USER_POOL.keys())})
+    await sio.emit("user-list", {"user_ids": get_cached_user_ids_with_current(user.id)})
     return {"id": user.id, "name": user.name}
 
 
@@ -280,7 +300,8 @@ async def channel_events(sid, data):
 @sio.on("user-list")
 async def user_list(sid):
     if sid in SESSION_POOL:
-        await sio.emit("user-list", {"user_ids": list(USER_POOL.keys())})
+        user_id = get_user_id_from_session_pool(sid)
+        await sio.emit("user-list", {"user_ids": get_cached_user_ids_with_current(user_id)})
 
 
 @sio.event
@@ -295,7 +316,7 @@ async def disconnect(sid):
         if len(USER_POOL[user_id]) == 0:
             del USER_POOL[user_id]
 
-        await sio.emit("user-list", {"user_ids": list(USER_POOL.keys())})
+        await sio.emit("user-list", {"user_ids": get_cached_user_ids_with_current(user_id)})
     else:
         pass
         # print(f"Unknown session ID {sid} disconnected")
