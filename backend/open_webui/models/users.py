@@ -399,27 +399,27 @@ class UsersTable:
             else:
                 return None
 
-    def get_user_ids_active_in_last_6_months(self) -> list[str]:
-        """Get user IDs for users who have been active in the last 6 months.
+    def get_active_user_ids(self) -> list[str]:
+        """Get user IDs for users who have been active in the last 1 month.
         Uses last_active_at if available, falls back to created_at if last_active_at is null or 0.
         """
         try:
             with get_db() as db:
-                # Calculate timestamp for 6 months ago (approximately 180 days)
-                six_months_ago = int(time.time()) - (180 * 24 * 60 * 60)
-
-                # Query users active in last 6 months
+                # Calculate timestamp for 1 month ago (approximately 30 days)
+                one_month_ago = int(time.time()) - (30 * 24 * 60 * 60)
+                
+                # Query users active in last 1 month
                 # Use last_active_at if it's not null and > 0, otherwise use created_at
                 users = db.query(User.id).filter(
                     or_(
-                        User.last_active_at >= six_months_ago,
+                        User.last_active_at >= one_month_ago,
                         (
                             (User.last_active_at.is_(None) | (User.last_active_at == 0)) &
-                            (User.created_at >= six_months_ago)
+                            (User.created_at >= one_month_ago)
                         )
                     )
                 ).all()
-
+                
                 return [user.id for user in users]
         except Exception as e:
             print(f"Error getting active user IDs: {e}")

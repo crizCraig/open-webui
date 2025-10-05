@@ -37,14 +37,14 @@ log.setLevel(SRC_LOG_LEVELS["SOCKET"])
 
 # Cached set of user IDs active in last 6 months initialized at process start
 try:
-    LAST6MO_ACTIVE_USER_IDS = set(Users.get_user_ids_active_in_last_6_months() or [])
+    ACTIVE_USER_IDS = set(Users.get_active_user_ids() or [])
 except Exception as e:
     log.error(f"Failed to initialize last 6 months active user cache: {e}")
-    LAST6MO_ACTIVE_USER_IDS = set()
+    ACTIVE_USER_IDS = set()
 
 def get_cached_user_ids_with_current(current_user_id=None):
     """Return union of cached 6-month-active user IDs and currently connected users, ensuring current_user_id is included."""
-    ids = set(LAST6MO_ACTIVE_USER_IDS)
+    ids = set(ACTIVE_USER_IDS)
     try:
         # Include all currently connected users from USER_POOL
         ids |= set(USER_POOL.keys())
