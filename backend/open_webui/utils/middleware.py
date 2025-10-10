@@ -78,6 +78,7 @@ from open_webui.utils.filter import (
 from open_webui.utils.code_interpreter import execute_code_jupyter
 
 from open_webui.tasks import create_task
+from open_webui.utils.auth import get_call_type
 
 from open_webui.config import (
     CACHE_DIR,
@@ -801,6 +802,10 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     }
     form_data["metadata"] = metadata
 
+    # Determine call type and whether to pass through input tools
+    call_type = get_call_type(request)
+    use_input_tools = call_type == "API" and bool(form_data.get("tools"))
+
     # Server side tools
     tool_ids = metadata.get("tool_ids", None)
     # Client side tools
@@ -835,7 +840,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                     "server": tool_server,
                 }
 
-    if tools_dict:
+    if tools_dict and not use_input_tools:
         if metadata.get("function_calling") == "native":
             # If the function calling is native, then call the tools function calling handler
             metadata["tools"] = tools_dict

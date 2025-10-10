@@ -15,7 +15,7 @@ from open_webui.config import CACHE_DIR
 from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from open_webui.utils.tools import get_tool_specs
-from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type
 from open_webui.utils.access_control import has_access, has_permission
 from open_webui.env import SRC_LOG_LEVELS
 
@@ -70,7 +70,10 @@ async def get_tools(request: Request, user=Depends(get_verified_user)):
             )
         )
 
-    if user.role != "admin":
+    # Filter tools based on access control
+    call_type = get_call_type(request)
+
+    if user.role != "admin" and call_type != "API":
         tools = [
             tool
             for tool in tools
