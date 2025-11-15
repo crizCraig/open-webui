@@ -23,7 +23,7 @@ from open_webui.env import (
     SRC_LOG_LEVELS,
 )
 
-from fastapi import BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi import BackgroundTasks, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 
