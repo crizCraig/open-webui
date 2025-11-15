@@ -1,3 +1,4 @@
+import secrets
 import time
 from typing import Optional
 
@@ -145,8 +146,26 @@ class UsersTable:
     def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
-                user = db.query(User).filter_by(api_key=api_key).first()
-                return UserModel.model_validate(user)
+                # Use prefix check for performance (first 6 chars) to narrow candidates
+                # Then use secrets.compare_digest for timing-safe comparison
+                if len(api_key) >= 6:
+                    prefix = api_key[:6]
+                    users = db.query(User).filter(
+                        User.api_key.isnot(None),
+                        User.api_key.startswith(prefix)
+                    ).all()
+                else:
+                    # If API key is too short, check all users
+                    users = db.query(User).filter(User.api_key.isnot(None)).all()
+                
+                # Use secrets.compare_digest for timing-safe comparison
+                for user in users:
+                    if user.api_key and secrets.compare_digest(
+                        user.api_key, api_key
+                    ):
+                        return UserModel.model_validate(user)
+                
+                return None
         except Exception:
             return None
 
