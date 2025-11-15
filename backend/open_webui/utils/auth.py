@@ -297,3 +297,53 @@ def get_admin_user(user=Depends(get_current_user)):
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
     return user
+
+
+def get_cc_user_by_authorization(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """
+    Authenticate user via authorization header for /cc (Claude Code requests)
+    Does NOT check API_KEY_ALLOWED_ENDPOINTS restrictions.
+    Expects "Bearer sk-..." format in authorization header.
+    """
+    if authorization is None:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    
+    # Extract token from "Bearer <token>" format
+    auth_cred = get_http_authorization_cred(authorization)
+    if auth_cred is None or auth_cred.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+        )
+    
+    token = auth_cred.credentials
+    
+    # Check if it's an API key (starts with "sk-")
+    if token.startswith("sk-"):
+        if not request.state.enable_api_key:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED
+            )
+        # Note: We explicitly do NOT check API_KEY_ALLOWED_ENDPOINTS here
+        return get_current_user_by_api_key(token)
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid token",
+    )
+
+
+def auth_cc_user(user=Depends(get_cc_user_by_authorization)):
+    """
+    Authenticate user via authorization header for /cc (Claude Code requests)
+    """
+    if user.role not in {"user", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+    return user
