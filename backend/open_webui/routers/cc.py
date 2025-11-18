@@ -3,6 +3,7 @@ from typing import Optional
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
 
@@ -114,29 +115,54 @@ async def cc_catch_all(
                 ),
             )
 
+        # Check content type to determine how to parse response
+        content_type = response.headers.get("Content-Type", "")
+        is_json = "application/json" in content_type
+
         try:
-            payload = await response.json()
+            if is_json:
+                payload = await response.json()
+            else:
+                payload = await response.text()
         except Exception:
             payload = await response.text()
 
-        response.raise_for_status()
+        # Check for error status codes and return error response directly
+        if response.status >= 400:
+            # For error responses, pass through the payload directly
+            # This preserves the exact format from downstream
+            if isinstance(payload, dict):
+                return JSONResponse(
+                    status_code=response.status,
+                    content=payload,
+                )
+            elif isinstance(payload, str):
+                # Return plain text responses as-is to preserve newlines
+                return PlainTextResponse(
+                    status_code=response.status,
+                    content=payload if payload else "Open WebUI: Server Connection Error",
+                )
+            else:
+                # Fallback for other types
+                return JSONResponse(
+                    status_code=response.status,
+                    content={"detail": str(payload)},
+                )
+
         return payload
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except Exception as exc:
         log.exception(exc)
 
-        detail = None
-        if isinstance(payload, dict):
-            error = payload.get("error")
-            if isinstance(error, dict):
-                detail = error.get("message") or error
-            elif error is not None:
-                detail = error
-        elif isinstance(payload, str):
-            detail = payload
+        # Handle other exceptions (connection errors, etc.)
+        detail = "Open WebUI: Server Connection Error"
+        status_code = 500
 
         raise HTTPException(
-            status_code=response.status if response else 500,
-            detail=detail if detail else "Open WebUI: Server Connection Error",
+            status_code=status_code,
+            detail=detail,
         )
     finally:
         if not streaming and session:
