@@ -303,25 +303,37 @@ def get_cc_user_by_authorization(
     request: Request,
     background_tasks: BackgroundTasks,
     authorization: str = Header(None),
+    x_api_key: str = Header(None, alias="x-api-key"),
 ):
     """
     Authenticate user via authorization header for /cc (Claude Code requests)
     Does NOT check API_KEY_ALLOWED_ENDPOINTS restrictions.
-    Expects "Bearer sk-..." format in authorization header.
+    Supports both:
+    - Standard Anthropic "x-api-key: sk-..." format
+    - Bearer token "Authorization: Bearer sk-..." format
     """
-    if authorization is None:
-        raise HTTPException(status_code=403, detail="Not authenticated")
-    
-    # Extract token from "Bearer <token>" format
-    auth_cred = get_http_authorization_cred(authorization)
-    if auth_cred is None or auth_cred.scheme.lower() != "bearer":
+    token = None
+
+    # Check for x-api-key header (Anthropic standard)
+    if x_api_key is not None:
+        token = x_api_key
+    # Check for Authorization header
+    elif authorization is not None:
+        # Extract token from "Bearer <token>" format
+        auth_cred = get_http_authorization_cred(authorization)
+        if auth_cred is None or auth_cred.scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization header format",
+            )
+        token = auth_cred.credentials
+
+    if token is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
+            status_code=403,
+            detail="Not authenticated. Provide either 'Authorization: Bearer <token>' or 'x-api-key: <token>' header."
         )
-    
-    token = auth_cred.credentials
-    
+
     # Check if it's an API key (starts with "sk-")
     if token.startswith("sk-"):
         if not request.state.enable_api_key:
@@ -330,7 +342,7 @@ def get_cc_user_by_authorization(
             )
         # Note: We explicitly do NOT check API_KEY_ALLOWED_ENDPOINTS here
         return get_current_user_by_api_key(token)
-    
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid token",
