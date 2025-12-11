@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 import jwt
 import base64
@@ -21,6 +22,7 @@ from open_webui.env import (
     TRUSTED_SIGNATURE_KEY,
     STATIC_DIR,
     SRC_LOG_LEVELS,
+    NO_CC_AUTH,
 )
 
 from fastapi import BackgroundTasks, Depends, Header, HTTPException, Request, Response, status
@@ -311,7 +313,27 @@ def get_cc_user_by_authorization(
     Supports both:
     - Standard Anthropic "x-api-key: sk-..." format
     - Bearer token "Authorization: Bearer sk-..." format
+
+    Token format can be "orig-token,user-token" where:
+    - orig-token: Anthropic OAuth token (sk-ant-oat01...) to forward downstream (stored in request.state.cc_orig_token)
+    - user-token: Open WebUI API key (sk-...) used for authentication in Open WebUI
+
+    If NO_CC_AUTH is enabled, returns a default admin user without requiring authentication.
     """
+    # If NO_CC_AUTH is enabled, bypass authentication
+    if NO_CC_AUTH:
+        from open_webui.models.users import UserModel
+        return UserModel(
+            id="no-auth-user",
+            name="No Auth User",
+            email="noauth@localhost",
+            role="user",
+            profile_image_url="/user.png",
+            last_active_at=int(time.time()),
+            updated_at=int(time.time()),
+            created_at=int(time.time()),
+        )
+
     token = None
 
     # Check for x-api-key header (Anthropic standard)

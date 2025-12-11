@@ -199,6 +199,12 @@ CHANGELOG = changelog_json
 SAFE_MODE = os.environ.get("SAFE_MODE", "false").lower() == "true"
 
 ####################################
+# NO_CC_AUTH
+####################################
+
+NO_CC_AUTH = os.environ.get("NO_CC_AUTH", "false").lower() == "true"
+
+####################################
 # ENABLE_FORWARD_USER_INFO_HEADERS
 ####################################
 
