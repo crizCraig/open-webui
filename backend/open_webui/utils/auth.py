@@ -356,14 +356,27 @@ def get_cc_user_by_authorization(
             detail="Not authenticated. Provide either 'Authorization: Bearer <token>' or 'x-api-key: <token>' header."
         )
 
+    # Parse token format: "orig-token,user-token"
+    # orig-token is an Anthropic OAuth token (sk-ant-oat01...)
+    # user-token is an Open WebUI API key (sk-...)
+    orig_token = None
+    user_token = token
+    if "," in token:
+        parts = token.split(",", 1)
+        orig_token = parts[0]
+        user_token = parts[1]
+
+    # Store original Anthropic OAuth token in request state for use in router
+    request.state.cc_orig_token = orig_token
+
     # Check if it's an API key (starts with "sk-")
-    if token.startswith("sk-"):
+    if user_token.startswith("sk-"):
         if not request.state.enable_api_key:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED
             )
         # Note: We explicitly do NOT check API_KEY_ALLOWED_ENDPOINTS here
-        return get_current_user_by_api_key(token)
+        return get_current_user_by_api_key(user_token)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
