@@ -1490,7 +1490,7 @@ async def process_chat_response(
 
                         # Clean processed content
                         content = re.sub(
-                            rf"<{re.escape(start_tag)}(.*?)>(.|\n)*?<{re.escape(end_tag)}>",
+                            rf"<{re.escape(start_tag)}(.*?)>.*?<{re.escape(end_tag)}>",
                             "",
                             content,
                             flags=re.DOTALL,
