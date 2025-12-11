@@ -1336,7 +1336,19 @@ async def process_chat_response(
 
                 return messages
 
-            def tag_content_handler(content_type, tags, content, content_blocks):
+            def tag_content_handler(content_type, tags, content, content_blocks, start_time=None):
+                # Timeout guardrail: 5 seconds max
+                timeout_seconds = 5.0
+
+                if start_time is None:
+                    start_time = time.time()
+
+                # Check if we've exceeded timeout
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    logging.error(f"tag_content_handler exceeded timeout ({elapsed:.2f}s > {timeout_seconds}s)")
+                    return content, content_blocks, False
+
                 end_flag = False
 
                 def extract_attributes(tag_content):
@@ -1397,7 +1409,7 @@ async def process_chat_response(
                             if after_tag:
                                 content_blocks[-1]["content"] = after_tag
                                 tag_content_handler(
-                                    content_type, tags, after_tag, content_blocks
+                                    content_type, tags, after_tag, content_blocks, start_time
                                 )
 
                             break
