@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+import json
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -71,6 +72,43 @@ async def cc_catch_all(
     body = await request.body()
     params = list(request.query_params.multi_items())
     params = params if params else None
+
+    # Log full request and authentication details
+    try:
+        body_json = json.loads(body) if body else None
+    except Exception:
+        body_json = body.decode('utf-8', errors='replace') if body else None
+
+    def truncate_strings(obj, max_chars=100):
+        """Recursively truncate strings to show first and last max_chars characters."""
+        if isinstance(obj, str):
+            if len(obj) <= max_chars * 2:
+                return obj
+            return f"{obj[:max_chars]}...{obj[-max_chars:]}"
+        elif isinstance(obj, dict):
+            return {k: truncate_strings(v, max_chars) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [truncate_strings(item, max_chars) for item in obj]
+        elif isinstance(obj, tuple):
+            return tuple(truncate_strings(item, max_chars) for item in obj)
+        else:
+            return obj
+
+    request_data = {
+        "method": request.method,
+        "path": f"/{path}",
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_role": user.role,
+        "auth_header": "Authorization" if request.headers.get('authorization') else "x-api-key",
+        "headers": dict(request.headers),
+        "query_params": dict(request.query_params),
+        "client": str(request.client),
+        "body": body_json
+    }
+
+    truncated_data = truncate_strings(request_data)
+    log.debug(f"CC Request:\n{json.dumps(truncated_data, indent=2)}")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
