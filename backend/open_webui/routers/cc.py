@@ -115,6 +115,11 @@ async def cc_catch_all(
         **get_forwarded_headers(request, user),
     }
 
+    # Pass original Anthropic OAuth token (sk-ant-oat01...) as orig-bearer-token header
+    # This token was extracted during authentication in auth_cc_user
+    if hasattr(request.state, "cc_orig_token") and request.state.cc_orig_token:
+        headers["orig-bearer-token"] = request.state.cc_orig_token
+
     content_type = request.headers.get("content-type")
     if content_type:
         headers["Content-Type"] = content_type
