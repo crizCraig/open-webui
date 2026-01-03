@@ -151,6 +151,11 @@ async def cc_catch_all(
     if accept_header:
         headers["Accept"] = accept_header
 
+    # Forward all anthropic-* headers from the request
+    for header_name, header_value in request.headers.items():
+        if header_name.lower().startswith("anthropic-"):
+            headers[header_name] = header_value
+
     session: Optional[aiohttp.ClientSession] = None
     response: Optional[aiohttp.ClientResponse] = None
     payload: Optional[object] = None
