@@ -3,7 +3,7 @@ from typing import Optional
 import json
 
 import aiohttp
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
@@ -16,8 +16,9 @@ from open_webui.env import (
 from open_webui.models.users import UserModel
 from open_webui.utils.auth import (
     get_forwarded_headers,
-    auth_cc_user,
+    get_cc_user_by_authorization,
 )
+from open_webui.constants import ERROR_MESSAGES
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS.get("CC", logging.INFO))
@@ -35,17 +36,32 @@ async def cleanup_response(
         await session.close()
 
 
+# Paths that bypass authentication (e.g., telemetry endpoints)
+CC_NO_AUTH_PATHS = {"api/event_logging/batch"}
+
+
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def cc_catch_all(
     request: Request,
     path: str,
-    user: UserModel = Depends(auth_cc_user),
 ):
     """
     Catch-all route /cc/* paths
-    
-    Authenticates via authorization header without checking API_KEY_ALLOWED_ENDPOINTS
+
+    Authenticates via authorization header without checking API_KEY_ALLOWED_ENDPOINTS.
+    Some paths (defined in CC_NO_AUTH_PATHS) bypass authentication.
     """
+    # Authenticate unless path is in no-auth list
+    user: Optional[UserModel] = None
+    if path not in CC_NO_AUTH_PATHS:
+        authorization = request.headers.get("authorization")
+        x_api_key = request.headers.get("x-api-key")
+        user = get_cc_user_by_authorization(request, None, authorization, x_api_key)
+        if user.role not in {"user", "admin"}:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+            )
 
     if not request.app.state.config.ENABLE_OPENAI_API:
         raise HTTPException(
@@ -112,11 +128,14 @@ async def cc_catch_all(
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        **get_forwarded_headers(request, user),
     }
 
+    # Only add forwarded headers if we have an authenticated user
+    if user:
+        headers.update(get_forwarded_headers(request, user))
+
     # Pass original Anthropic OAuth token (sk-ant-oat01...) as orig-bearer-token header
-    # This token was extracted during authentication in auth_cc_user
+    # This token was extracted during authentication in get_cc_user_by_authorization
     if hasattr(request.state, "cc_orig_token") and request.state.cc_orig_token:
         headers["orig-bearer-token"] = request.state.cc_orig_token
 
