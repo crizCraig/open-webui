@@ -95,36 +95,40 @@ async def cc_catch_all(
     except Exception:
         body_json = body.decode('utf-8', errors='replace') if body else None
 
-    def truncate_strings(obj, max_chars=100):
+    def truncate_strings_for_logging(obj, max_chars=100):
         """Recursively truncate strings to show first and last max_chars characters."""
         if isinstance(obj, str):
             if len(obj) <= max_chars * 2:
                 return obj
             return f"{obj[:max_chars]}...{obj[-max_chars:]}"
         elif isinstance(obj, dict):
-            return {k: truncate_strings(v, max_chars) for k, v in obj.items()}
+            return {k: truncate_strings_for_logging(v, max_chars) for k, v in obj.items()}
         elif isinstance(obj, list):
-            return [truncate_strings(item, max_chars) for item in obj]
+            return [truncate_strings_for_logging(item, max_chars) for item in obj]
         elif isinstance(obj, tuple):
-            return tuple(truncate_strings(item, max_chars) for item in obj)
+            return tuple(truncate_strings_for_logging(item, max_chars) for item in obj)
         else:
             return obj
 
-    request_data = {
+    request_data_to_log = {
         "method": request.method,
         "path": f"/{path}",
-        "user_id": user.id,
-        "user_email": user.email,
-        "user_role": user.role,
+        "user_id": user.id if user else None,
+        "user_email": user.email if user else None,
+        "user_role": user.role if user else None,
         "auth_header": "Authorization" if request.headers.get('authorization') else "x-api-key",
-        "headers": dict(request.headers),
+        "headers": {
+            k: (f"{v[:6]}...{v[-6:]}" if len(v) > 12 else v)
+               if k.lower() in ('authorization', 'x-api-key') else v
+            for k, v in request.headers.items()
+        },
         "query_params": dict(request.query_params),
         "client": str(request.client),
         "body": body_json
     }
 
-    truncated_data = truncate_strings(request_data)
-    log.debug(f"CC Request:\n{json.dumps(truncated_data, indent=2)}")
+    truncated_data_for_logging = truncate_strings_for_logging(request_data_to_log)
+    log.debug(f"CC Request:\n{json.dumps(truncated_data_for_logging, indent=2)}")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
