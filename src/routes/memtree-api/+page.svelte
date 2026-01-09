@@ -34,16 +34,6 @@
 				}
 			}
 			
-			// Automatically copy to clipboard
-			await copyToClipboard(apiKey);
-			copied = true;
-			toast.success($i18n.t('API Key copied to clipboard!'));
-			
-			// Auto-hide the copied state after 3 seconds
-			setTimeout(() => {
-				copied = false;
-			}, 3000);
-			
 		} catch (error) {
 			console.error('API Key creation error:', error);
 			toast.error($i18n.t('Failed to create API key. Please try again.'));
@@ -144,7 +134,7 @@
 							{$i18n.t('Your PolyChat API Key')}
 						</div>
 						<div class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-							{$i18n.t('Your API key has been created and copied to your clipboard. Use this key to connect to our API, including MemTree memory, to your AI assistant.')}
+							{$i18n.t('Your API key has been created. Copy it below and use this key to connect to our API, including MemTree memory, to your AI assistant.')}
 						</div>
 					</div>
 					
