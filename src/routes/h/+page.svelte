@@ -62,14 +62,14 @@
     <header class="fixed top-0 left-0 right-0 z-10 bg-[#0f1117]/80 backdrop-blur">
         <!-- Announcement Banner -->
         <div class="w-full border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-blue-500/10">
-            <a
-                href="https://nano-gpt.com/blog/context-memory"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="block text-center px-4 sm:px-6 lg:px-8 py-3 text-lg sm:text-xl font-bold tracking-wide text-emerald-100 hover:text-white transition-colors antialiased"
-            >
-                Announcing Context Memory — available through NanoGPT!
-            </a>
+            <div class="block text-center px-4 sm:px-6 lg:px-8 py-3 text-lg sm:text-xl font-medium tracking-wide text-emerald-100 antialiased">
+                Announcing <a
+                    href="https://github.com/crizCraig/claude-code-infinite"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-block px-1.5 py-0.5 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 rounded-md border border-orange-400/30 hover:border-orange-400/50 text-white transition-all duration-300"
+                >Claude Code Infinite</a> — PolyChat's <a href="https://memtree.dev" target="_blank" rel="noopener noreferrer" class="underline hover:text-white transition-colors">MemTree</a> built into Claude Code
+            </div>
         </div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
