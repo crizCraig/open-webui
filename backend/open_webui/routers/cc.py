@@ -36,10 +36,6 @@ async def cleanup_response(
         await session.close()
 
 
-# Paths that bypass authentication (e.g., telemetry endpoints)
-CC_NO_AUTH_PATHS = {"api/event_logging/batch"}
-
-
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def cc_catch_all(
     request: Request,
@@ -49,19 +45,18 @@ async def cc_catch_all(
     Catch-all route /cc/* paths
 
     Authenticates via authorization header without checking API_KEY_ALLOWED_ENDPOINTS.
-    Some paths (defined in CC_NO_AUTH_PATHS) bypass authentication.
+    Every path authenticates, including telemetry (api/event_logging/batch):
+    the relay runs on the operator's upstream credentials, so anonymous
+    traffic must never be proxied.
     """
-    # Authenticate unless path is in no-auth list
-    user: Optional[UserModel] = None
-    if path not in CC_NO_AUTH_PATHS:
-        authorization = request.headers.get("authorization")
-        x_api_key = request.headers.get("x-api-key")
-        user = get_cc_user_by_authorization(request, None, authorization, x_api_key)
-        if user.role not in {"user", "admin"}:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
-            )
+    authorization = request.headers.get("authorization")
+    x_api_key = request.headers.get("x-api-key")
+    user: UserModel = get_cc_user_by_authorization(request, None, authorization, x_api_key)
+    if user.role not in {"user", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
 
     if not request.app.state.config.ENABLE_OPENAI_API:
         raise HTTPException(
@@ -134,9 +129,7 @@ async def cc_catch_all(
         "Authorization": f"Bearer {api_key}",
     }
 
-    # Only add forwarded headers if we have an authenticated user
-    if user:
-        headers.update(get_forwarded_headers(request, user))
+    headers.update(get_forwarded_headers(request, user))
 
     # Pass original Anthropic OAuth token (sk-ant-oat01...) as orig-bearer-token header
     # This token was extracted during authentication in get_cc_user_by_authorization

@@ -44,7 +44,13 @@ from open_webui.utils.payload import (
     apply_model_params_to_body_openai,
     apply_model_system_prompt_to_body,
 )
-from open_webui.utils.auth import get_admin_user, get_verified_user, get_call_type, get_forwarded_headers
+from open_webui.utils.auth import (
+    get_admin_user,
+    get_verified_user,
+    get_call_type,
+    get_forwarded_headers,
+    api_key_private_model_access,
+)
 from open_webui.utils.access_control import has_access
 
 
@@ -436,10 +442,13 @@ async def get_ollama_tags(
                 detail=detail if detail else "Open WebUI: Server Connection Error",
             )
 
-    # API key users can see private models, browser users follow normal access control
-    call_type = get_call_type(request)
-    
-    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL and call_type != "API":
+    # API-key callers only see private models when
+    # ALLOW_API_KEY_PRIVATE_MODEL_ACCESS is explicitly enabled.
+    if (
+        user.role == "user"
+        and not BYPASS_MODEL_ACCESS_CONTROL
+        and not api_key_private_model_access(request)
+    ):
         models["models"] = await get_filtered_models(models, user)
 
     return models
@@ -1343,9 +1352,9 @@ async def generate_openai_chat_completion(
             payload = apply_model_system_prompt_to_body(params, payload, metadata, user)
 
         # Check if user has access to the model
-        # API key users can access private models, browser users follow normal access control
-        call_type = get_call_type(request)
-        if user.role == "user" and call_type != "API":
+        # API-key callers only bypass access control when
+        # ALLOW_API_KEY_PRIVATE_MODEL_ACCESS is explicitly enabled.
+        if user.role == "user" and not api_key_private_model_access(request):
             if not (
                 user.id == model_info.user_id
                 or has_access(

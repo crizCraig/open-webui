@@ -204,6 +204,27 @@ SAFE_MODE = os.environ.get("SAFE_MODE", "false").lower() == "true"
 
 NO_CC_AUTH = os.environ.get("NO_CC_AUTH", "false").lower() == "true"
 
+# NO_CC_AUTH returns a synthetic user with no credential check at all, so any
+# reachable caller can proxy through /cc on the operator's upstream credentials.
+# It is a local-development convenience only: refuse to boot with it enabled
+# anywhere else (ENV is "dev" by default; deployments set ENV=prod).
+if NO_CC_AUTH and ENV != "dev":
+    raise RuntimeError(
+        "NO_CC_AUTH=true disables all /cc authentication and is only permitted when "
+        f"ENV=dev (current ENV={ENV!r}). Unset NO_CC_AUTH before starting the server."
+    )
+
+####################################
+# ALLOW_API_KEY_PRIVATE_MODEL_ACCESS
+####################################
+
+# When true, callers authenticating with an "sk-" API key skip model access
+# control and may reach private / admin-only models (the pre-fix behaviour).
+# Default off: authorization is a property of the user, not the transport.
+ALLOW_API_KEY_PRIVATE_MODEL_ACCESS = (
+    os.environ.get("ALLOW_API_KEY_PRIVATE_MODEL_ACCESS", "false").lower() == "true"
+)
+
 ####################################
 # ENABLE_FORWARD_USER_INFO_HEADERS
 ####################################

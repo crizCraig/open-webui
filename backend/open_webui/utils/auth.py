@@ -23,6 +23,7 @@ from open_webui.env import (
     STATIC_DIR,
     SRC_LOG_LEVELS,
     NO_CC_AUTH,
+    ALLOW_API_KEY_PRIVATE_MODEL_ACCESS,
 )
 
 from fastapi import BackgroundTasks, Depends, Header, HTTPException, Request, Response, status
@@ -168,32 +169,72 @@ def get_call_type(request: Request) -> str:
     return "UI"
 
 
+def api_key_private_model_access(request: Request) -> bool:
+    """
+    True only when the operator has explicitly opted in to letting API-key
+    ("sk-") callers bypass model access control AND this request is such a call.
+    Access control is otherwise enforced regardless of transport.
+    """
+    return ALLOW_API_KEY_PRIVATE_MODEL_ACCESS and get_call_type(request) == "API"
+
+
+# The only inbound X-PolyChat-* header the polychat backend reads. Every other
+# client-supplied X-PolyChat-* header is dropped rather than forwarded verbatim.
+FORWARDABLE_POLYCHAT_HEADERS = frozenset({"x-polychat-memory"})
+
+# Domain separator so the identity-assertion key is distinct from the session
+# JWT secret it is derived from. Must match polychat/forwarded_identity.py.
+FORWARDED_IDENTITY_KEY_INFO = b"polychat-forwarded-identity-v1"
+
+
+def derive_forwarded_identity_key(secret: str) -> bytes:
+    return hmac.new(secret.encode(), FORWARDED_IDENTITY_KEY_INFO, hashlib.sha256).digest()
+
+
+def sign_forwarded_identity(user_id: str, email: str, ts: str, secret: str) -> str:
+    """
+    HMAC-SHA256 hex signature over "<user_id>|<email>|<ts>" using the key
+    derived from ``secret`` (WEBUI_SECRET_KEY). Polychat verifies this so the
+    X-OpenWebUI-User-* headers cannot be forged by anyone holding only the
+    shared POLYCHAT_API_KEY.
+    """
+    key = derive_forwarded_identity_key(secret)
+    message = f"{user_id}|{email}|{ts}".encode()
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
 def get_forwarded_headers(request: Request, user=None) -> dict:
     """
     Get headers to forward to backend services, including:
-    - X-OpenWebUI user info headers
-    - X-PolyChat headers from the incoming request
+    - X-OpenWebUI user info headers, plus a signed identity assertion
+      (X-OpenWebUI-User-Ts / X-OpenWebUI-User-Sig)
+    - the allowlisted X-PolyChat headers from the incoming request
     """
     headers = {}
-    
+
     # Add X-OpenWebUI headers if user info forwarding is enabled
     if user and hasattr(request.app.state, 'config'):
         from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS
         if ENABLE_FORWARD_USER_INFO_HEADERS:
+            ts = str(int(time.time()))
             headers.update({
                 "X-OpenWebUI-User-Name": user.name,
                 "X-OpenWebUI-User-Id": user.id,
                 "X-OpenWebUI-User-Email": user.email,
                 "X-OpenWebUI-User-Role": user.role,
                 "X-OpenWebUI-Call-Type": get_call_type(request),
+                "X-OpenWebUI-User-Ts": ts,
+                "X-OpenWebUI-User-Sig": sign_forwarded_identity(
+                    user.id, user.email, ts, SESSION_SECRET
+                ),
             })
-    
-    # Forward any X-PolyChat headers from the incoming request
+
+    # Forward only allowlisted X-PolyChat headers from the incoming request
     if hasattr(request, 'headers'):
         for header_name, header_value in request.headers.items():
-            if header_name.lower().startswith('x-polychat-'):
+            if header_name.lower() in FORWARDABLE_POLYCHAT_HEADERS:
                 headers[header_name] = header_value
-    
+
     return headers
 
 

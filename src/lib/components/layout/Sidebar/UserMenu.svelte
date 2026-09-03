@@ -18,6 +18,21 @@
 	export let className = 'max-w-[240px]';
 
 	const dispatch = createEventDispatcher();
+
+	// Mirror of the (app)/+layout.svelte cookie hand-off: polychat's /payment
+	// derives the user from this cookie instead of trusting query params.
+	const setPolychatCookie = () => {
+		if (!localStorage.token) return;
+		fetch(`${getPolychatAppUrl()}/set-cookie`, {
+			method: 'POST',
+			mode: 'cors',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ token: localStorage.token })
+		}).catch((error) => {
+			console.error('Failed to set polychat cookie:', error);
+		});
+	};
 </script>
 
 <DropdownMenu.Root
@@ -85,10 +100,13 @@
 			{#if $user}
 				<a
 					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-					href={`${getPolychatAppUrl()}/payment?user_id=${$user.id}&user_email=${$user.email}`}
+					href={`${getPolychatAppUrl()}/payment`}
 					target="_blank"
 					rel="noopener noreferrer"
 					on:click={() => {
+						// /payment authenticates via the polychat cookie; make sure it is
+						// set from the current session token before the new tab opens.
+						setPolychatCookie();
 						show = false;
 						if ($mobile) {
 							showSidebar.set(false);
