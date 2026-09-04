@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Literal, Optional, overload
+from urllib.parse import unquote
 
 import aiohttp
 from aiocache import cached
@@ -53,6 +54,19 @@ from open_webui.utils.access_control import has_access
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["OPENAI"])
+
+MODEL_EXECUTION_PROXY_PATHS = frozenset(
+    {
+        "chat/completions",
+        "v1/chat/completions",
+        "completions",
+        "v1/completions",
+        "responses",
+        "v1/responses",
+        "embeddings",
+        "v1/embeddings",
+    }
+)
 
 
 ##########################################
@@ -569,24 +583,28 @@ async def verify_connection(
 
 
 @router.post("/chat/completions")
+@router.post("/chat/completions/")
 async def generate_chat_completion(
     request: Request,
     form_data: dict,
     user=Depends(get_verified_user),
-    bypass_filter: Optional[bool] = False,
 ):
-    # API-key callers only bypass access control when
-    # ALLOW_API_KEY_PRIVATE_MODEL_ACCESS is explicitly enabled.
-    if BYPASS_MODEL_ACCESS_CONTROL or api_key_private_model_access(request):
-        bypass_filter = True
+    return await generate_chat_completion_internal(request, form_data, user)
 
+
+async def generate_chat_completion_internal(
+    request: Request,
+    form_data: dict,
+    user: UserModel,
+    bypass_filter: bool = False,
+):
     idx = 0
 
     payload = {**form_data}
     metadata = payload.pop("metadata", None)
 
     model_id = form_data.get("model")
-    model_info = Models.get_model_by_id(model_id)
+    model_info = authorize_model_access(request, form_data, user, bypass_filter)
 
     # Check model info and override the payload
     if model_info:
@@ -597,25 +615,6 @@ async def generate_chat_completion(
         params = model_info.params.model_dump()
         payload = apply_model_params_to_body_openai(params, payload)
         payload = apply_model_system_prompt_to_body(params, payload, metadata, user)
-
-        # Check if user has access to the model
-        if not bypass_filter and user.role == "user":
-            if not (
-                user.id == model_info.user_id
-                or has_access(
-                    user.id, type="read", access_control=model_info.access_control
-                )
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Model not found",
-                )
-    elif not bypass_filter:
-        if user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Model not found",
-            )
 
     await get_all_models(request, user=user)
     model = request.app.state.OPENAI_MODELS.get(model_id)
@@ -751,6 +750,17 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
 
     body = await request.body()
 
+    if request.method == "POST" and is_model_execution_proxy_path(path):
+        try:
+            form_data = json.loads(body)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid JSON request body")
+        if not isinstance(form_data, dict):
+            raise HTTPException(status_code=400, detail="Invalid JSON request body")
+        if is_chat_completion_proxy_path(path):
+            return await generate_chat_completion(request, form_data, user)
+        authorize_model_access(request, form_data, user)
+
     idx = 0
     url = request.app.state.config.OPENAI_API_BASE_URLS[idx]
     key = request.app.state.config.OPENAI_API_KEYS[idx]
@@ -810,3 +820,58 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
             if r:
                 r.close()
             await session.close()
+
+
+def is_chat_completion_proxy_path(path: str) -> bool:
+    return normalize_proxy_path(path) in {"chat/completions", "v1/chat/completions"}
+
+
+def is_model_execution_proxy_path(path: str) -> bool:
+    return normalize_proxy_path(path) in MODEL_EXECUTION_PROXY_PATHS
+
+
+def authorize_model_access(
+    request: Request,
+    form_data: dict,
+    user: UserModel,
+    bypass_filter: bool = False,
+):
+    if BYPASS_MODEL_ACCESS_CONTROL or api_key_private_model_access(request):
+        bypass_filter = True
+
+    model_info = Models.get_model_by_id(form_data.get("model"))
+    if model_info:
+        if not bypass_filter and user.role == "user":
+            if not (
+                user.id == model_info.user_id
+                or has_access(
+                    user.id, type="read", access_control=model_info.access_control
+                )
+            ):
+                raise HTTPException(status_code=403, detail="Model not found")
+    elif not bypass_filter and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Model not found")
+    return model_info
+
+
+def normalize_proxy_path(path: str) -> str:
+    decoded_path = path
+    while True:
+        unquoted_path = unquote(decoded_path)
+        if unquoted_path == decoded_path:
+            break
+        decoded_path = unquoted_path
+
+    for separator in ("?", "#"):
+        decoded_path = decoded_path.split(separator, maxsplit=1)[0]
+
+    parts = []
+    for part in decoded_path.split("/"):
+        if not part or part == ".":
+            continue
+        if part == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(part)
+    return "/".join(parts)

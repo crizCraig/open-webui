@@ -1129,7 +1129,18 @@ async def generate_chat_completion(
     form_data: dict,
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
-    bypass_filter: Optional[bool] = False,
+):
+    return await generate_chat_completion_internal(
+        request, form_data, url_idx, user
+    )
+
+
+async def generate_chat_completion_internal(
+    request: Request,
+    form_data: dict,
+    url_idx: Optional[int] = None,
+    user: UserModel = None,
+    bypass_filter: bool = False,
 ):
     if BYPASS_MODEL_ACCESS_CONTROL:
         bypass_filter = True

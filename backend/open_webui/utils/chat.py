@@ -24,11 +24,11 @@ from open_webui.socket.main import (
 from open_webui.functions import generate_function_chat_completion
 
 from open_webui.routers.openai import (
-    generate_chat_completion as generate_openai_chat_completion,
+    generate_chat_completion_internal as generate_openai_chat_completion,
 )
 
 from open_webui.routers.ollama import (
-    generate_chat_completion as generate_ollama_chat_completion,
+    generate_chat_completion_internal as generate_ollama_chat_completion,
 )
 
 from open_webui.routers.pipelines import (
