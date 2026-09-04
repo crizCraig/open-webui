@@ -861,6 +861,7 @@ async def embed(
     user=Depends(get_verified_user),
 ):
     log.info(f"generate_ollama_batch_embeddings {form_data}")
+    authorize_model_access(request, form_data.model, user)
 
     if url_idx is None:
         await get_all_models(request, user=user)
@@ -948,6 +949,7 @@ async def embeddings(
     user=Depends(get_verified_user),
 ):
     log.info(f"generate_ollama_embeddings {form_data}")
+    authorize_model_access(request, form_data.model, user)
 
     if url_idx is None:
         await get_all_models(request, user=user)
@@ -1042,6 +1044,7 @@ async def generate_completion(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
+    authorize_model_access(request, form_data.model, user)
     if url_idx is None:
         await get_all_models(request, user=user)
         models = request.app.state.OLLAMA_MODELS
@@ -1142,9 +1145,6 @@ async def generate_chat_completion_internal(
     user: UserModel = None,
     bypass_filter: bool = False,
 ):
-    if BYPASS_MODEL_ACCESS_CONTROL:
-        bypass_filter = True
-
     metadata = form_data.pop("metadata", None)
     try:
         form_data = GenerateChatCompletionForm(**form_data)
@@ -1160,7 +1160,7 @@ async def generate_chat_completion_internal(
         del payload["metadata"]
 
     model_id = payload["model"]
-    model_info = Models.get_model_by_id(model_id)
+    model_info = authorize_model_access(request, model_id, user, bypass_filter)
 
     if model_info:
         if model_info.base_model_id:
@@ -1176,25 +1176,6 @@ async def generate_chat_completion_internal(
                 params, payload["options"]
             )
             payload = apply_model_system_prompt_to_body(params, payload, metadata, user)
-
-        # Check if user has access to the model
-        if not bypass_filter and user.role == "user":
-            if not (
-                user.id == model_info.user_id
-                or has_access(
-                    user.id, type="read", access_control=model_info.access_control
-                )
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Model not found",
-                )
-    elif not bypass_filter:
-        if user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Model not found",
-            )
 
     if ":" not in payload["model"]:
         payload["model"] = f"{payload['model']}:latest"
@@ -1272,7 +1253,7 @@ async def generate_openai_completion(
     if ":" not in model_id:
         model_id = f"{model_id}:latest"
 
-    model_info = Models.get_model_by_id(model_id)
+    model_info = authorize_model_access(request, model_id, user)
     if model_info:
         if model_info.base_model_id:
             payload["model"] = model_info.base_model_id
@@ -1280,25 +1261,6 @@ async def generate_openai_completion(
 
         if params:
             payload = apply_model_params_to_body_openai(params, payload)
-
-        # Check if user has access to the model
-        if user.role == "user":
-            if not (
-                user.id == model_info.user_id
-                or has_access(
-                    user.id, type="read", access_control=model_info.access_control
-                )
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Model not found",
-                )
-    else:
-        if user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Model not found",
-            )
 
     if ":" not in payload["model"]:
         payload["model"] = f"{payload['model']}:latest"
@@ -1351,7 +1313,7 @@ async def generate_openai_chat_completion(
     if ":" not in model_id:
         model_id = f"{model_id}:latest"
 
-    model_info = Models.get_model_by_id(model_id)
+    model_info = authorize_model_access(request, model_id, user)
     if model_info:
         if model_info.base_model_id:
             payload["model"] = model_info.base_model_id
@@ -1361,27 +1323,6 @@ async def generate_openai_chat_completion(
         if params:
             payload = apply_model_params_to_body_openai(params, payload)
             payload = apply_model_system_prompt_to_body(params, payload, metadata, user)
-
-        # Check if user has access to the model
-        # API-key callers only bypass access control when
-        # ALLOW_API_KEY_PRIVATE_MODEL_ACCESS is explicitly enabled.
-        if user.role == "user" and not api_key_private_model_access(request):
-            if not (
-                user.id == model_info.user_id
-                or has_access(
-                    user.id, type="read", access_control=model_info.access_control
-                )
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Model not found",
-                )
-    else:
-        if user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Model not found",
-            )
 
     if ":" not in payload["model"]:
         payload["model"] = f"{payload['model']}:latest"
@@ -1476,6 +1417,28 @@ async def get_openai_models(
         "data": models,
         "object": "list",
     }
+
+
+def authorize_model_access(
+    request: Request,
+    model_id: str,
+    user: UserModel,
+    bypass_filter: bool = False,
+):
+    model_info = Models.get_model_by_id(model_id)
+    if model_info is None and ":" not in model_id:
+        model_info = Models.get_model_by_id(f"{model_id}:latest")
+
+    if bypass_filter or BYPASS_MODEL_ACCESS_CONTROL or api_key_private_model_access(request):
+        return model_info
+    if user.role == "admin":
+        return model_info
+    if model_info is None or not (
+        user.id == model_info.user_id
+        or has_access(user.id, type="read", access_control=model_info.access_control)
+    ):
+        raise HTTPException(status_code=403, detail="Model not found")
+    return model_info
 
 
 class UrlForm(BaseModel):

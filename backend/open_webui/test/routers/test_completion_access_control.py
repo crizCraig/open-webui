@@ -94,6 +94,17 @@ class FakeOpenAIResponse:
     def close(self):
         pass
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class FakeOpenAIModelResponse(FakeOpenAIResponse):
+    async def json(self):
+        return {"data": [{"id": "private-model"}]}
+
 
 class FakeOpenAISession:
     requests = []
@@ -107,6 +118,16 @@ class FakeOpenAISession:
 
     async def close(self):
         pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+    def get(self, url, **kwargs):
+        self.requests.append({"url": url, **kwargs})
+        return FakeOpenAIModelResponse()
 
 
 def private_model():
@@ -176,11 +197,23 @@ def configure_ollama(monkeypatch, ollama):
     monkeypatch.setattr(ollama, "BYPASS_MODEL_ACCESS_CONTROL", False)
     calls = []
 
+    async def fake_get_all_models(*args, **kwargs):
+        return {"models": [{"model": "private-model:latest"}]}
+
     async def fake_send_post_request(**kwargs):
         calls.append(kwargs)
         return JSONResponse({"upstream": "called"})
 
+    def fake_sync_request(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {"upstream": "called"},
+        )
+
+    monkeypatch.setattr(ollama, "get_all_models", fake_get_all_models)
     monkeypatch.setattr(ollama, "send_post_request", fake_send_post_request)
+    monkeypatch.setattr(ollama.requests, "request", fake_sync_request)
     return app, calls
 
 
@@ -293,3 +326,117 @@ def test_internal_completion_bypass_remains_available(monkeypatch, route_modules
     assert FakeOpenAISession.requests
     assert ollama_response.status_code == 200
     assert ollama_calls
+
+
+OLLAMA_EXECUTION_PATHS = (
+    "/api/chat",
+    "/api/generate",
+    "/api/embed",
+    "/api/embeddings",
+    "/v1/completions",
+    "/v1/chat/completions",
+)
+
+
+def ollama_execution_body() -> dict:
+    return {
+        "model": "private-model",
+        "messages": [{"role": "user", "content": "hello"}],
+        "prompt": "hello",
+        "input": "hello",
+        "stream": False,
+    }
+
+
+@pytest.mark.parametrize("path", OLLAMA_EXECUTION_PATHS)
+@pytest.mark.parametrize("suffix", ("", "/0"))
+@pytest.mark.parametrize("registered", (True, False))
+def test_ollama_execution_requires_model_access(
+    monkeypatch, route_modules, path, suffix, registered
+):
+    ollama = route_modules.ollama
+    app, calls = configure_ollama(monkeypatch, ollama)
+    monkeypatch.setattr(
+        ollama.Models,
+        "get_model_by_id",
+        lambda model_id: private_model()
+        if registered and model_id == "private-model:latest"
+        else None,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"/ollama{path}{suffix}?bypass_filter=true",
+            json=ollama_execution_body(),
+            headers={"Authorization": "Bearer sk-untrusted"},
+        )
+
+    assert response.status_code == 403
+    assert calls == []
+
+
+@pytest.mark.parametrize("path", OLLAMA_EXECUTION_PATHS)
+@pytest.mark.parametrize("suffix", ("", "/0"))
+@pytest.mark.parametrize("access", ("owner", "public", "api_key", "operator", "admin"))
+def test_ollama_authorized_execution_remains_available(
+    monkeypatch, route_modules, path, suffix, access
+):
+    ollama = route_modules.ollama
+    app, calls = configure_ollama(monkeypatch, ollama)
+    model = private_model()
+    if access == "owner":
+        model.user_id = regular_user().id
+    elif access == "public":
+        model.access_control = None
+        monkeypatch.setattr(
+            ollama, "has_access", lambda *args, **kwargs: kwargs["access_control"] is None
+        )
+    elif access == "api_key":
+        monkeypatch.setattr(ollama, "api_key_private_model_access", lambda request: True)
+    elif access == "operator":
+        monkeypatch.setattr(ollama, "BYPASS_MODEL_ACCESS_CONTROL", True)
+    elif access == "admin":
+        admin = regular_user()
+        admin.role = "admin"
+        app.dependency_overrides[ollama.get_verified_user] = lambda: admin
+    monkeypatch.setattr(ollama.Models, "get_model_by_id", lambda _model_id: model)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"/ollama{path}{suffix}", json=ollama_execution_body()
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"upstream": "called"}
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "path", ("/models", "/models/", "/%2e/models/", "/models%252F", "/v1/models/")
+)
+def test_openai_model_list_aliases_are_filtered(monkeypatch, route_modules, path):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+
+    async def fake_get_all_models(*args, **kwargs):
+        return {"data": [{"id": "private-model"}]}
+
+    monkeypatch.setattr(openai, "get_all_models", fake_get_all_models)
+    with TestClient(app) as client:
+        response = client.get(f"/openai{path}")
+
+    assert response.status_code == 200
+    assert response.json() == {"data": []}
+    assert FakeOpenAISession.requests == []
+
+
+@pytest.mark.parametrize("path", ("/models/0", "/models/0/", "/%2e/models/0/"))
+def test_openai_indexed_model_list_aliases_are_filtered(monkeypatch, route_modules, path):
+    app = configure_openai(monkeypatch, route_modules.openai)
+    with TestClient(app) as client:
+        response = client.get(f"/openai{path}")
+
+    assert response.status_code == 200
+    assert response.json() == {"data": []}
+    assert len(FakeOpenAISession.requests) == 1
+    assert FakeOpenAISession.requests[0]["url"] == "https://upstream.example/models"

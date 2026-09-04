@@ -748,6 +748,14 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
     Deprecated: proxy all requests to OpenAI API
     """
 
+    normalized_path = normalize_proxy_path(path)
+    if request.method == "GET":
+        if normalized_path in {"models", "v1/models"}:
+            return await get_models(request, user=user)
+        parts = normalized_path.split("/")
+        if len(parts) == 2 and parts[0] == "models" and parts[1].isdigit():
+            return await get_models(request, url_idx=int(parts[1]), user=user)
+
     body = await request.body()
 
     if request.method == "POST" and is_model_execution_proxy_path(path):

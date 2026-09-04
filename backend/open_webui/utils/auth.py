@@ -29,6 +29,11 @@ from open_webui.env import (
 from fastapi import BackgroundTasks, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
+from open_webui.utils.forwarded_identity import (
+    FORWARDED_IDENTITY_KEY_INFO,
+    derive_forwarded_identity_key,
+    sign_forwarded_identity,
+)
 
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
@@ -181,27 +186,6 @@ def api_key_private_model_access(request: Request) -> bool:
 # The only inbound X-PolyChat-* header the polychat backend reads. Every other
 # client-supplied X-PolyChat-* header is dropped rather than forwarded verbatim.
 FORWARDABLE_POLYCHAT_HEADERS = frozenset({"x-polychat-memory"})
-
-# Domain separator so the identity-assertion key is distinct from the session
-# JWT secret it is derived from. Must match polychat/forwarded_identity.py.
-FORWARDED_IDENTITY_KEY_INFO = b"polychat-forwarded-identity-v1"
-
-
-def derive_forwarded_identity_key(secret: str) -> bytes:
-    return hmac.new(secret.encode(), FORWARDED_IDENTITY_KEY_INFO, hashlib.sha256).digest()
-
-
-def sign_forwarded_identity(user_id: str, email: str, ts: str, secret: str) -> str:
-    """
-    HMAC-SHA256 hex signature over "<user_id>|<email>|<ts>" using the key
-    derived from ``secret`` (WEBUI_SECRET_KEY). Polychat verifies this so the
-    X-OpenWebUI-User-* headers cannot be forged by anyone holding only the
-    shared POLYCHAT_API_KEY.
-    """
-    key = derive_forwarded_identity_key(secret)
-    message = f"{user_id}|{email}|{ts}".encode()
-    return hmac.new(key, message, hashlib.sha256).hexdigest()
-
 
 def get_forwarded_headers(request: Request, user=None) -> dict:
     """
