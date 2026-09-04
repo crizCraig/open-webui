@@ -59,7 +59,8 @@
       await navigateAfterCookieSync(
         event,
         () => syncPolychatCookie(localStorage.token),
-        (destination) => window.location.assign(destination)
+        (destination) => window.location.assign(destination),
+        () => window.open('', '_blank')
       );
     } catch (error) {
       console.error('Failed to set Polychat cookie before opening payment:', error);
@@ -155,7 +156,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
-           on:click|preventDefault={openPayment}
+           on:click={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
           Subscribe Now
          </a>
@@ -211,7 +212,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
-           on:click|preventDefault={openPayment}
+           on:click={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
           Subscribe Now
          </a>
@@ -269,7 +270,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
-           on:click|preventDefault={openPayment}
+           on:click={openPayment}
            class="block w-full py-3 px-4 text-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
           Subscribe Now
          </a>
@@ -326,7 +327,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
-           on:click|preventDefault={openPayment}
+           on:click={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-indigo-500/30">
           Subscribe Now
          </a>
@@ -395,7 +396,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -418,7 +419,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -441,7 +442,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -464,7 +465,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -487,7 +488,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -510,7 +511,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -533,7 +534,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
-                on:click|preventDefault={openPayment}
+                on:click={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -604,7 +605,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
-                  on:click|preventDefault={openPayment}
+                  on:click={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full border border-emerald-500/30">
                   Subscribe
                 </a>
@@ -642,7 +643,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
-                  on:click|preventDefault={openPayment}
+                  on:click={openPayment}
                   class="inline-block px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-center w-full">
                   Subscribe
                 </a>
@@ -677,7 +678,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
-                  on:click|preventDefault={openPayment}
+                  on:click={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded text-center w-full border border-indigo-500/30">
                   Subscribe
                 </a>
@@ -712,7 +713,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
-                  on:click|preventDefault={openPayment}
+                  on:click={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                   Subscribe
                 </a>
@@ -751,7 +752,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
-                      on:click|preventDefault={openPayment}
+                      on:click={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
@@ -786,7 +787,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
-                      on:click|preventDefault={openPayment}
+                      on:click={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
@@ -821,7 +822,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
-                      on:click|preventDefault={openPayment}
+                      on:click={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
