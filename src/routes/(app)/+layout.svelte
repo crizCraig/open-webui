@@ -19,6 +19,7 @@
 	import { getTools } from '$lib/apis/tools';
 	import { getBanners } from '$lib/apis/configs';
 	import { getUserSettings } from '$lib/apis/users';
+	import { syncPolychatCookie } from '$lib/apis/polychat';
 
 	import { WEBUI_VERSION, getPolychatAppUrl } from '$lib/constants';
 	import { compareVersion } from '$lib/utils';
@@ -132,26 +133,12 @@
 				console.error('Error generating fingerprint in layout:', error);
 			}
 
-			// Set the token cookie for Polychat app
+			// Refresh the Polychat cookie in the background. Payment and plans wait for this
+			// same shared request before relying on it.
 			if (localStorage.token) {
-				try {
-					// Make a background fetch request to set the cookie
-					fetch(`${getPolychatAppUrl()}/set-cookie`, {
-						method: 'POST',
-						mode: 'cors',
-						credentials: 'include',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							token: localStorage.token
-						}),
-					}).catch(error => {
-						console.error('Failed to set cookie:', error);
-					});
-				} catch (error) {
-					console.error('Error setting token cookie:', error);
-				}
+				void syncPolychatCookie(localStorage.token).catch((error) => {
+					console.error('Failed to set Polychat cookie:', error);
+				});
 			}
 			try {
 				// Check if IndexedDB exists

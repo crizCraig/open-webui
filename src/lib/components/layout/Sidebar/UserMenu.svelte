@@ -9,7 +9,9 @@
 	import { fade, slide } from 'svelte/transition';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { userSignOut } from '$lib/apis/auths';
+	import { syncPolychatCookie } from '$lib/apis/polychat';
 	import { getPolychatAppUrl } from '$lib/constants';
+	import { navigateAfterCookieSync } from '$lib/utils/paymentNavigation';
 
 	const i18n = getContext('i18n');
 
@@ -19,20 +21,27 @@
 
 	const dispatch = createEventDispatcher();
 
-	// Mirror of the (app)/+layout.svelte cookie hand-off: polychat's /payment
-	// derives the user from this cookie instead of trusting query params.
-	const setPolychatCookie = () => {
-		if (!localStorage.token) return;
-		fetch(`${getPolychatAppUrl()}/set-cookie`, {
-			method: 'POST',
-			mode: 'cors',
-			credentials: 'include',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ token: localStorage.token })
-		}).catch((error) => {
-			console.error('Failed to set polychat cookie:', error);
-		});
-	};
+	async function openPayment(event: MouseEvent): Promise<void> {
+		event.preventDefault();
+
+		const paymentWindow = window.open('', '_blank');
+		if (!paymentWindow) {
+			console.error('Unable to open billing window.');
+			return;
+		}
+		paymentWindow.opener = null;
+
+		try {
+			await navigateAfterCookieSync(
+				event,
+				() => syncPolychatCookie(localStorage.token),
+				(destination) => paymentWindow.location.replace(destination)
+			);
+		} catch (error) {
+			console.error('Failed to set Polychat cookie before opening billing:', error);
+			paymentWindow.close();
+		}
+	}
 </script>
 
 <DropdownMenu.Root
@@ -103,10 +112,8 @@
 					href={`${getPolychatAppUrl()}/payment`}
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => {
-						// /payment authenticates via the polychat cookie; make sure it is
-						// set from the current session token before the new tab opens.
-						setPolychatCookie();
+					on:click={async (event) => {
+						await openPayment(event);
 						show = false;
 						if ($mobile) {
 							showSidebar.set(false);

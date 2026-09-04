@@ -1,7 +1,9 @@
 <script lang="ts">
   import { WEBUI_NAME } from '$lib/stores';
   import { getContext, onMount } from 'svelte';
+  import { syncPolychatCookie } from '$lib/apis/polychat';
   import { getPolychatAppUrl } from '$lib/constants';
+  import { navigateAfterCookieSync } from '$lib/utils/paymentNavigation';
   import { user } from '$lib/stores';
   
   const i18n = getContext('i18n');
@@ -24,29 +26,14 @@
   let useOwnApiKeys = false; // Toggle for API key mode
   
   onMount(async () => {
-    // Set the token cookie for Polychat app if user is logged in
-    if ($user && localStorage.token) {
-      try {
-        // Make a background fetch request to set the cookie
-        fetch(`${POLYCHAT_APP_URL}/set-cookie`, {
-          method: 'POST',
-          mode: 'cors',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            token: localStorage.token
-          }),
-        }).catch(error => {
-          console.error('Failed to set cookie:', error);
-        });
-      } catch (error) {
-        console.error('Error setting token cookie:', error);
-      }
-    }
-    
     if ($user) {
+      try {
+        await syncPolychatCookie(localStorage.token);
+      } catch (error) {
+        console.error('Failed to set Polychat cookie before loading plans:', error);
+        return;
+      }
+
       try {
         const response = await fetch(`${POLYCHAT_APP_URL}/plans?user_email=${encodeURIComponent($user.email)}`, {
           credentials: 'include'
@@ -63,6 +50,20 @@
   // Function to toggle between pricing modes
   function toggleApiKeyMode() {
     useOwnApiKeys = !useOwnApiKeys;
+  }
+
+  async function openPayment(event: MouseEvent) {
+    event.preventDefault();
+
+    try {
+      await navigateAfterCookieSync(
+        event,
+        () => syncPolychatCookie(localStorage.token),
+        (destination) => window.location.assign(destination)
+      );
+    } catch (error) {
+      console.error('Failed to set Polychat cookie before opening payment:', error);
+    }
   }
 </script>
 <div class="h-screen overflow-auto">
@@ -154,6 +155,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+           on:click|preventDefault={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
           Subscribe Now
          </a>
@@ -209,6 +211,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+           on:click|preventDefault={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-emerald-500/30">
           Subscribe Now
          </a>
@@ -266,6 +269,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+           on:click|preventDefault={openPayment}
            class="block w-full py-3 px-4 text-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
           Subscribe Now
          </a>
@@ -322,6 +326,7 @@
          </div>
          {:else}
          <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+           on:click|preventDefault={openPayment}
            class="block w-full py-3 px-4 text-center bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded-lg font-medium transition-colors border border-indigo-500/30">
           Subscribe Now
          </a>
@@ -390,6 +395,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -412,6 +418,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -434,6 +441,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -456,6 +464,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -478,6 +487,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -500,6 +510,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -522,6 +533,7 @@
               <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</span>
             {:else}
               <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
+                on:click|preventDefault={openPayment}
                 class="text-emerald-400 hover:text-emerald-300 transition-colors">
                 Subscribe
               </a>
@@ -592,6 +604,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Starter')?.price_id || ''}"
+                  on:click|preventDefault={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full border border-emerald-500/30">
                   Subscribe
                 </a>
@@ -629,6 +642,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Basic')?.price_id || ''}"
+                  on:click|preventDefault={openPayment}
                   class="inline-block px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-center w-full">
                   Subscribe
                 </a>
@@ -663,6 +677,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Plus')?.price_id || ''}"
+                  on:click|preventDefault={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-white rounded text-center w-full border border-indigo-500/30">
                   Subscribe
                 </a>
@@ -697,6 +712,7 @@
                 <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
               {:else}
                 <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Pro')?.price_id || ''}"
+                  on:click|preventDefault={openPayment}
                   class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                   Subscribe
                 </a>
@@ -735,6 +751,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 1%')?.price_id || ''}"
+                      on:click|preventDefault={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
@@ -769,6 +786,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.1%')?.price_id || ''}"
+                      on:click|preventDefault={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
@@ -803,6 +821,7 @@
                     <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm font-medium">Current Plan</div>
                   {:else}
                     <a href="{POLYCHAT_APP_URL}/payment?price_id={plansData?.available_plans?.find(p => p.name === 'Top 0.01%')?.price_id || ''}"
+                      on:click|preventDefault={openPayment}
                       class="inline-block px-4 py-2 bg-[#0f1117] hover:bg-[#1a1d2a] text-emerald-400 rounded text-center w-full">
                       Subscribe
                     </a>
