@@ -837,14 +837,6 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
             await session.close()
 
 
-def is_chat_completion_proxy_path(path: str) -> bool:
-    return normalize_proxy_path(path) in CHAT_COMPLETION_PROXY_PATHS
-
-
-def is_model_execution_proxy_path(path: str) -> bool:
-    return normalize_proxy_path(path) in MODEL_EXECUTION_PROXY_PATHS
-
-
 def authorize_model_access(
     request: Request,
     form_data: dict,

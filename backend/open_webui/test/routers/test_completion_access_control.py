@@ -94,8 +94,19 @@ def load_router_module(module_name, router_filename):
 def route_modules():
     constants = importlib.import_module("open_webui.constants")
     stubs = get_router_import_stubs()
+    request_model_cache_name = "open_webui.utils.request_model_cache"
+    original_request_model_cache = sys.modules.get(request_model_cache_name)
     original_modules = {name: sys.modules.get(name) for name in stubs}
     with patch.dict(sys.modules, stubs):
+        # open_webui.routers.openai/ollama and utils/models obtain Models
+        # indirectly through open_webui.utils.request_model_cache. If that
+        # module is already imported (e.g. by an earlier test importing
+        # open_webui.main), it will already be bound to the real Models
+        # class, so it must be re-loaded here to bind the stubbed Models.
+        request_model_cache = load_router_module(
+            "completion_acl_request_model_cache", "../utils/request_model_cache.py"
+        )
+        sys.modules[request_model_cache_name] = request_model_cache
         openai = load_router_module("completion_acl_openai", "openai.py")
         ollama = load_router_module("completion_acl_ollama", "ollama.py")
         access_control = load_router_module(
@@ -111,12 +122,15 @@ def route_modules():
             access_control=access_control,
             models=stubs["open_webui.models.models"].Models,
             model_utils=model_utils,
+            request_model_cache=request_model_cache,
         )
 
     for name, original_module in original_modules.items():
         assert sys.modules.get(name) is original_module
+    assert sys.modules.get(request_model_cache_name) is original_request_model_cache
     assert "completion_acl_openai" not in sys.modules
     assert "completion_acl_ollama" not in sys.modules
+    assert "completion_acl_request_model_cache" not in sys.modules
     assert importlib.import_module("open_webui.constants") is constants
 
 
@@ -486,7 +500,7 @@ def test_openai_indexed_model_list_aliases_are_filtered(monkeypatch, route_modul
     assert FakeOpenAISession.requests[0]["url"] == "https://upstream.example/models"
 
 
-def test_repeated_authorization_reuses_model_but_not_permission_decisions(
+def test_model_record_fetched_once_but_access_still_enforced(
     monkeypatch, route_modules
 ):
     openai = route_modules.openai
