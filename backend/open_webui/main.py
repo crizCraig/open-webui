@@ -90,7 +90,6 @@ from open_webui.routers.retrieval import (
 from open_webui.internal.db import Session, engine
 
 from open_webui.models.functions import Functions
-from open_webui.models.models import Models
 from open_webui.models.users import UserModel, Users
 from open_webui.models.chats import Chats
 
@@ -393,6 +392,7 @@ from open_webui.utils.chat import (
 )
 from open_webui.utils.middleware import process_chat_payload, process_chat_response
 from open_webui.utils.access_control import has_access
+from open_webui.utils.request_model_cache import get_model_for_request
 
 from open_webui.utils.auth import (
     api_key_private_model_access,
@@ -1076,14 +1076,15 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
                     access_control=model.get("info", {})
                     .get("meta", {})
                     .get("access_control", {}),
+                    request=request,
                 ):
                     filtered_models.append(model)
                 continue
 
-            model_info = Models.get_model_by_id(model["id"])
+            model_info = get_model_for_request(request, model["id"])
             if model_info:
                 if user.id == model_info.user_id or has_access(
-                    user.id, type="read", access_control=model_info.access_control
+                    user.id, type="read", access_control=model_info.access_control, request=request
                 ):
                     filtered_models.append(model)
 
@@ -1250,7 +1251,7 @@ async def chat_completion(
                 raise Exception("Model not found")
 
             model = request.app.state.MODELS[model_id]
-            model_info = Models.get_model_by_id(model_id)
+            model_info = get_model_for_request(request, model_id)
 
             # Check if user has access to the model
             # API-key callers only bypass access control when
@@ -1261,7 +1262,7 @@ async def chat_completion(
                 and not api_key_private_model_access(request)
             ):
                 try:
-                    check_model_access(user, model)
+                    check_model_access(user, model, request=request)
                 except Exception as e:
                     raise e
         else:

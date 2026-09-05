@@ -35,7 +35,6 @@ from pydantic import BaseModel, ConfigDict, validator
 from starlette.background import BackgroundTask
 
 
-from open_webui.models.models import Models
 from open_webui.utils.misc import (
     calculate_sha256,
 )
@@ -52,6 +51,7 @@ from open_webui.utils.auth import (
     api_key_private_model_access,
 )
 from open_webui.utils.access_control import has_access
+from open_webui.utils.request_model_cache import get_model_for_request, get_models_for_request
 
 
 from open_webui.config import (
@@ -376,14 +376,18 @@ async def get_all_models(request: Request, user: UserModel = None):
     return models
 
 
-async def get_filtered_models(models, user):
+async def get_filtered_models(models, user, request: Request):
     # Filter models based on user access control
+    model_list = models.get("models", [])
+    if not model_list:
+        return []
+    get_models_for_request(request)
     filtered_models = []
-    for model in models.get("models", []):
-        model_info = Models.get_model_by_id(model["model"])
+    for model in model_list:
+        model_info = get_model_for_request(request, model["model"])
         if model_info:
             if user.id == model_info.user_id or has_access(
-                user.id, type="read", access_control=model_info.access_control
+                user.id, type="read", access_control=model_info.access_control, request=request
             ):
                 filtered_models.append(model)
     return filtered_models
@@ -449,7 +453,7 @@ async def get_ollama_tags(
         and not BYPASS_MODEL_ACCESS_CONTROL
         and not api_key_private_model_access(request)
     ):
-        models["models"] = await get_filtered_models(models, user)
+        models["models"] = await get_filtered_models(models, user, request)
 
     return models
 
@@ -1401,14 +1405,15 @@ async def get_openai_models(
                 detail=error_detail,
             )
 
-    if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
+    if models and user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
         # Filter models based on user access control
+        get_models_for_request(request)
         filtered_models = []
         for model in models:
-            model_info = Models.get_model_by_id(model["id"])
+            model_info = get_model_for_request(request, model["id"])
             if model_info:
                 if user.id == model_info.user_id or has_access(
-                    user.id, type="read", access_control=model_info.access_control
+                    user.id, type="read", access_control=model_info.access_control, request=request
                 ):
                     filtered_models.append(model)
         models = filtered_models
@@ -1425,9 +1430,9 @@ def authorize_model_access(
     user: UserModel,
     bypass_filter: bool = False,
 ):
-    model_info = Models.get_model_by_id(model_id)
+    model_info = get_model_for_request(request, model_id)
     if model_info is None and ":" not in model_id:
-        model_info = Models.get_model_by_id(f"{model_id}:latest")
+        model_info = get_model_for_request(request, f"{model_id}:latest")
 
     if bypass_filter or BYPASS_MODEL_ACCESS_CONTROL or api_key_private_model_access(request):
         return model_info
@@ -1435,7 +1440,9 @@ def authorize_model_access(
         return model_info
     if model_info is None or not (
         user.id == model_info.user_id
-        or has_access(user.id, type="read", access_control=model_info.access_control)
+        or has_access(
+            user.id, type="read", access_control=model_info.access_control, request=request
+        )
     ):
         raise HTTPException(status_code=403, detail="Model not found")
     return model_info

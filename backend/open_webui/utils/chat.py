@@ -202,7 +202,7 @@ async def generate_chat_completion(
             and not api_key_private_model_access(request)
         ):
             try:
-                check_model_access(user, model)
+                check_model_access(user, model, request=request)
             except Exception as e:
                 raise e
 

@@ -17,7 +17,6 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from open_webui.models.models import Models
 from open_webui.config import (
     CACHE_DIR,
 )
@@ -50,11 +49,15 @@ from open_webui.utils.auth import (
     api_key_private_model_access,
 )
 from open_webui.utils.access_control import has_access
+from open_webui.utils.request_model_cache import get_model_for_request, get_models_for_request
 
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["OPENAI"])
 
+MAX_PROXY_PATH_CHARS = 8192
+MAX_PROXY_DECODE_ROUNDS = 4
+CHAT_COMPLETION_PROXY_PATHS = frozenset({"chat/completions", "v1/chat/completions"})
 MODEL_EXECUTION_PROXY_PATHS = frozenset(
     {
         "chat/completions",
@@ -376,14 +379,18 @@ async def get_all_models_responses(request: Request, user: UserModel) -> list:
     return responses
 
 
-async def get_filtered_models(models, user):
+async def get_filtered_models(models, user, request: Request):
     # Filter models based on user access control
+    model_list = models.get("data", [])
+    if not model_list:
+        return []
+    get_models_for_request(request)
     filtered_models = []
-    for model in models.get("data", []):
-        model_info = Models.get_model_by_id(model["id"])
+    for model in model_list:
+        model_info = get_model_for_request(request, model["id"])
         if model_info:
             if user.id == model_info.user_id or has_access(
-                user.id, type="read", access_control=model_info.access_control
+                user.id, type="read", access_control=model_info.access_control, request=request
             ):
                 filtered_models.append(model)
     return filtered_models
@@ -528,7 +535,7 @@ async def get_models(
         and not BYPASS_MODEL_ACCESS_CONTROL
         and not api_key_private_model_access(request)
     ):
-        models["data"] = await get_filtered_models(models, user)
+        models["data"] = await get_filtered_models(models, user, request)
 
     return models
 
@@ -758,14 +765,14 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
 
     body = await request.body()
 
-    if request.method == "POST" and is_model_execution_proxy_path(path):
+    if request.method == "POST" and normalized_path in MODEL_EXECUTION_PROXY_PATHS:
         try:
             form_data = json.loads(body)
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="Invalid JSON request body")
         if not isinstance(form_data, dict):
             raise HTTPException(status_code=400, detail="Invalid JSON request body")
-        if is_chat_completion_proxy_path(path):
+        if normalized_path in CHAT_COMPLETION_PROXY_PATHS:
             return await generate_chat_completion(request, form_data, user)
         authorize_model_access(request, form_data, user)
 
@@ -831,7 +838,7 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
 
 
 def is_chat_completion_proxy_path(path: str) -> bool:
-    return normalize_proxy_path(path) in {"chat/completions", "v1/chat/completions"}
+    return normalize_proxy_path(path) in CHAT_COMPLETION_PROXY_PATHS
 
 
 def is_model_execution_proxy_path(path: str) -> bool:
@@ -847,13 +854,13 @@ def authorize_model_access(
     if BYPASS_MODEL_ACCESS_CONTROL or api_key_private_model_access(request):
         bypass_filter = True
 
-    model_info = Models.get_model_by_id(form_data.get("model"))
+    model_info = get_model_for_request(request, form_data.get("model"))
     if model_info:
         if not bypass_filter and user.role == "user":
             if not (
                 user.id == model_info.user_id
                 or has_access(
-                    user.id, type="read", access_control=model_info.access_control
+                    user.id, type="read", access_control=model_info.access_control, request=request
                 )
             ):
                 raise HTTPException(status_code=403, detail="Model not found")
@@ -863,12 +870,17 @@ def authorize_model_access(
 
 
 def normalize_proxy_path(path: str) -> str:
+    if len(path) > MAX_PROXY_PATH_CHARS:
+        raise HTTPException(status_code=414, detail="Proxy path is too long")
     decoded_path = path
-    while True:
+    # The extra pass checks that decoding is complete; never proxy a partial result.
+    for _ in range(MAX_PROXY_DECODE_ROUNDS + 1):
         unquoted_path = unquote(decoded_path)
         if unquoted_path == decoded_path:
             break
         decoded_path = unquoted_path
+    else:
+        raise HTTPException(status_code=400, detail="Proxy path is encoded too many times")
 
     for separator in ("?", "#"):
         decoded_path = decoded_path.split(separator, maxsplit=1)[0]

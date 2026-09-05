@@ -10,11 +10,11 @@ from open_webui.functions import get_function_models
 
 
 from open_webui.models.functions import Functions
-from open_webui.models.models import Models
 
 
 from open_webui.utils.plugin import load_function_module_by_id
 from open_webui.utils.access_control import has_access
+from open_webui.utils.request_model_cache import get_model_for_request, get_models_for_request
 
 
 from open_webui.config import (
@@ -110,7 +110,7 @@ async def get_all_models(request, user: UserModel = None):
         for function in Functions.get_functions_by_type("action", active_only=True)
     ]
 
-    custom_models = Models.get_all_models()
+    custom_models = get_models_for_request(request)
     for custom_model in custom_models:
         if custom_model.base_model_id is None:
             for model in models:
@@ -228,7 +228,7 @@ async def get_all_models(request, user: UserModel = None):
     return models
 
 
-def check_model_access(user, model):
+def check_model_access(user: UserModel, model: dict, request: Request) -> None:
     if model.get("arena"):
         if not has_access(
             user.id,
@@ -236,16 +236,17 @@ def check_model_access(user, model):
             access_control=model.get("info", {})
             .get("meta", {})
             .get("access_control", {}),
+            request=request,
         ):
             raise Exception("Model not found")
     else:
-        model_info = Models.get_model_by_id(model.get("id"))
+        model_info = get_model_for_request(request, model.get("id"))
         if not model_info:
             raise Exception("Model not found")
         elif not (
             user.id == model_info.user_id
             or has_access(
-                user.id, type="read", access_control=model_info.access_control
+                user.id, type="read", access_control=model_info.access_control, request=request
             )
         ):
             raise Exception("Model not found")

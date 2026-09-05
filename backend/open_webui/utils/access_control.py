@@ -1,4 +1,5 @@
 from typing import Optional, Union, List, Dict, Any
+from fastapi import Request
 from open_webui.models.users import Users, UserModel
 from open_webui.models.groups import Groups
 
@@ -111,12 +112,12 @@ def has_access(
     user_id: str,
     type: str = "write",
     access_control: Optional[dict] = None,
+    request: Optional[Request] = None,
 ) -> bool:
     if access_control is None:
         return type == "read"
 
-    user_groups = Groups.get_groups_by_member_id(user_id)
-    user_group_ids = [group.id for group in user_groups]
+    user_group_ids = _get_user_group_ids(user_id, request)
     permission_access = access_control.get(type, {})
     permitted_group_ids = permission_access.get("group_ids", [])
     permitted_user_ids = permission_access.get("user_ids", [])
@@ -145,3 +146,17 @@ def get_users_with_access(
             user_ids_with_access.update(group_user_ids)
 
     return Users.get_users_by_user_ids(list(user_ids_with_access))
+
+
+def _get_user_group_ids(user_id: str, request: Optional[Request]) -> frozenset[str]:
+    if request is None:
+        return frozenset(group.id for group in Groups.get_groups_by_member_id(user_id))
+    groups_by_user = getattr(request.state, "_access_groups_by_user", None)
+    if groups_by_user is None:
+        groups_by_user = {}
+        request.state._access_groups_by_user = groups_by_user
+    if user_id not in groups_by_user:
+        groups_by_user[user_id] = frozenset(
+            group.id for group in Groups.get_groups_by_member_id(user_id)
+        )
+    return groups_by_user[user_id]

@@ -4,10 +4,10 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -19,6 +19,8 @@ def get_router_import_stubs():
     config = ModuleType("open_webui.config")
     config.CACHE_DIR = ""
     config.UPLOAD_DIR = ""
+    config.DEFAULT_USER_PERMISSIONS = {}
+    config.DEFAULT_ARENA_MODEL = {}
     payload = ModuleType("open_webui.utils.payload")
     payload.apply_model_params_to_body_openai = lambda _params, body: body
     payload.apply_model_params_to_body_ollama = lambda _params, body: body
@@ -30,10 +32,30 @@ def get_router_import_stubs():
     misc.convert_logit_bias_input_to_json = lambda value: value
     models = ModuleType("open_webui.models.models")
     models.Models = type(
-        "Models", (), {"get_model_by_id": staticmethod(lambda _model_id: None)}
+        "Models", (), {
+            "get_model_by_id": staticmethod(lambda _model_id: None),
+            "get_all_models": staticmethod(lambda: []),
+        }
     )
+    models.ModelModel = object
     users = ModuleType("open_webui.models.users")
     users.UserModel = object
+    users.Users = object
+    groups = ModuleType("open_webui.models.groups")
+    groups.Groups = type(
+        "Groups", (), {"get_groups_by_member_id": staticmethod(lambda _user_id: [])}
+    )
+    functions = ModuleType("open_webui.functions")
+    functions.get_function_models = lambda *args, **kwargs: []
+    function_models = ModuleType("open_webui.models.functions")
+    function_models.Functions = type(
+        "Functions", (), {
+            "get_global_action_functions": staticmethod(lambda: []),
+            "get_functions_by_type": staticmethod(lambda *args, **kwargs: []),
+        }
+    )
+    plugin = ModuleType("open_webui.utils.plugin")
+    plugin.load_function_module_by_id = lambda _function_id: None
 
     auth = ModuleType("open_webui.utils.auth")
     auth.get_admin_user = lambda: None
@@ -49,6 +71,10 @@ def get_router_import_stubs():
         misc.__name__: misc,
         models.__name__: models,
         users.__name__: users,
+        groups.__name__: groups,
+        functions.__name__: functions,
+        function_models.__name__: function_models,
+        plugin.__name__: plugin,
         auth.__name__: auth,
         access_control.__name__: access_control,
     }
@@ -72,7 +98,20 @@ def route_modules():
     with patch.dict(sys.modules, stubs):
         openai = load_router_module("completion_acl_openai", "openai.py")
         ollama = load_router_module("completion_acl_ollama", "ollama.py")
-        yield SimpleNamespace(openai=openai, ollama=ollama)
+        access_control = load_router_module(
+            "completion_acl_access_control", "../utils/access_control.py"
+        )
+        sys.modules["open_webui.routers.openai"] = openai
+        sys.modules["open_webui.routers.ollama"] = ollama
+        model_utils = load_router_module("completion_acl_models", "../utils/models.py")
+        model_utils.has_access = access_control.has_access
+        yield SimpleNamespace(
+            openai=openai,
+            ollama=ollama,
+            access_control=access_control,
+            models=stubs["open_webui.models.models"].Models,
+            model_utils=model_utils,
+        )
 
     for name, original_module in original_modules.items():
         assert sys.modules.get(name) is original_module
@@ -132,6 +171,7 @@ class FakeOpenAISession:
 
 def private_model():
     return SimpleNamespace(
+        id="private-model",
         base_model_id=None,
         user_id="model-owner",
         access_control={"read": {"group_ids": []}},
@@ -170,7 +210,9 @@ def configure_openai(monkeypatch, openai):
         OPENAI_API_CONFIGS={},
     )
     app.state.OPENAI_MODELS = {"private-model": {"urlIdx": 0}}
-    monkeypatch.setattr(openai.Models, "get_model_by_id", lambda _model_id: private_model())
+    models = sys.modules["open_webui.models.models"].Models
+    monkeypatch.setattr(models, "get_model_by_id", lambda _model_id: private_model())
+    monkeypatch.setattr(models, "get_all_models", lambda: [private_model()])
     monkeypatch.setattr(openai, "has_access", lambda *args, **kwargs: False)
     monkeypatch.setattr(openai, "BYPASS_MODEL_ACCESS_CONTROL", False)
 
@@ -192,7 +234,9 @@ def configure_ollama(monkeypatch, ollama):
         OLLAMA_API_CONFIGS={},
     )
     app.state.OLLAMA_MODELS = {"private-model:latest": {"urls": [0]}}
-    monkeypatch.setattr(ollama.Models, "get_model_by_id", lambda _model_id: private_model())
+    models = sys.modules["open_webui.models.models"].Models
+    monkeypatch.setattr(models, "get_model_by_id", lambda _model_id: private_model())
+    monkeypatch.setattr(models, "get_all_models", lambda: [private_model()])
     monkeypatch.setattr(ollama, "has_access", lambda *args, **kwargs: False)
     monkeypatch.setattr(ollama, "BYPASS_MODEL_ACCESS_CONTROL", False)
     calls = []
@@ -357,7 +401,7 @@ def test_ollama_execution_requires_model_access(
     ollama = route_modules.ollama
     app, calls = configure_ollama(monkeypatch, ollama)
     monkeypatch.setattr(
-        ollama.Models,
+        route_modules.models,
         "get_model_by_id",
         lambda model_id: private_model()
         if registered and model_id == "private-model:latest"
@@ -399,7 +443,7 @@ def test_ollama_authorized_execution_remains_available(
         admin = regular_user()
         admin.role = "admin"
         app.dependency_overrides[ollama.get_verified_user] = lambda: admin
-    monkeypatch.setattr(ollama.Models, "get_model_by_id", lambda _model_id: model)
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lambda _model_id: model)
 
     with TestClient(app) as client:
         response = client.post(
@@ -440,3 +484,237 @@ def test_openai_indexed_model_list_aliases_are_filtered(monkeypatch, route_modul
     assert response.json() == {"data": []}
     assert len(FakeOpenAISession.requests) == 1
     assert FakeOpenAISession.requests[0]["url"] == "https://upstream.example/models"
+
+
+def test_repeated_authorization_reuses_model_but_not_permission_decisions(
+    monkeypatch, route_modules
+):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    lookup = Mock(return_value=private_model())
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    request = make_request(app, "/openai/chat/completions")
+    for _ in range(3):
+        openai.authorize_model_access(
+            request, {"model": "private-model"}, regular_user(), bypass_filter=True
+        )
+    with pytest.raises(HTTPException) as rejected:
+        openai.authorize_model_access(request, {"model": "private-model"}, regular_user())
+    assert rejected.value.status_code == 403
+    lookup.assert_called_once_with("private-model")
+
+
+@pytest.mark.parametrize("provider", ("openai", "ollama", "ollama_openai"))
+def test_model_listing_batches_model_reads_and_reuses_groups(
+    monkeypatch, route_modules, provider
+):
+    access_control = route_modules.access_control
+    if provider == "openai":
+        router = route_modules.openai
+        app = configure_openai(monkeypatch, router)
+        path, source_key, result_key, id_key = "/openai/models", "data", "data", "id"
+    else:
+        router = route_modules.ollama
+        app, _ = configure_ollama(monkeypatch, router)
+        path = "/ollama/v1/models" if provider == "ollama_openai" else "/ollama/api/tags"
+        source_key, result_key, id_key = "models", "models", "model"
+        if provider == "ollama_openai":
+            result_key = "data"
+    records = []
+    for index in range(50):
+        model = private_model()
+        model.id = f"model-{index}"
+        model.access_control = {"read": {"group_ids": ["readers"]}}
+        records.append(model)
+    lookup = Mock(side_effect={model.id: model for model in records}.get)
+    bulk_lookup = Mock(return_value=records)
+    group_lookup = Mock(return_value=[SimpleNamespace(id="readers")])
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    monkeypatch.setattr(route_modules.models, "get_all_models", bulk_lookup)
+    monkeypatch.setattr(access_control.Groups, "get_groups_by_member_id", group_lookup)
+    monkeypatch.setattr(router, "has_access", access_control.has_access)
+
+    async def all_models(*args, **kwargs):
+        return {source_key: [{id_key: model.id} for model in records]}
+
+    monkeypatch.setattr(router, "get_all_models", all_models)
+    with TestClient(app) as client:
+        response = client.get(path)
+    assert response.status_code == 200
+    assert len(response.json()[result_key]) == 50
+    lookup.assert_not_called()
+    bulk_lookup.assert_called_once_with()
+    group_lookup.assert_called_once_with(regular_user().id)
+
+
+def test_group_cache_is_scoped_to_request_and_user(monkeypatch, route_modules):
+    access_control = route_modules.access_control
+    groups = {"alice": [SimpleNamespace(id="readers")], "bob": []}
+    lookup = Mock(side_effect=groups.__getitem__)
+    monkeypatch.setattr(access_control.Groups, "get_groups_by_member_id", lookup)
+    request = make_request(FastAPI(), "/models")
+    policy = {"read": {"group_ids": ["readers"]}}
+    for _ in range(3):
+        assert access_control.has_access("alice", "read", policy, request=request)
+    assert not access_control.has_access("bob", "read", policy, request=request)
+    groups["alice"] = []
+    next_request = make_request(FastAPI(), "/models")
+    assert not access_control.has_access("alice", "read", policy, request=next_request)
+    assert [call.args for call in lookup.call_args_list] == [("alice",), ("bob",), ("alice",)]
+
+
+def test_model_cache_does_not_cross_requests_or_model_ids(monkeypatch, route_modules):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    lookup = Mock(return_value=None)
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    first = make_request(app, "/openai/chat/completions")
+    for model_id in ("missing-model", "missing-model", "another-model"):
+        with pytest.raises(HTTPException):
+            openai.authorize_model_access(first, {"model": model_id}, regular_user())
+    assert lookup.call_count == 2
+    model = private_model()
+    model.user_id = regular_user().id
+    lookup.return_value = model
+    second = make_request(app, "/openai/chat/completions")
+    assert openai.authorize_model_access(second, {"model": "missing-model"}, regular_user())
+    assert lookup.call_count == 3
+
+
+def test_deeply_encoded_paths_are_rejected_with_bounded_work(route_modules):
+    openai = route_modules.openai
+    path = "v1/%" + "25" * 1000 + "63hat/completions"
+    with patch.object(openai, "unquote", wraps=openai.unquote) as decode:
+        with pytest.raises(HTTPException) as rejected:
+            openai.normalize_proxy_path(path)
+    assert rejected.value.status_code == 400
+    assert decode.call_count <= 5
+
+
+def test_proxy_normalizes_path_only_once(monkeypatch, route_modules):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    with patch.object(openai, "normalize_proxy_path", wraps=openai.normalize_proxy_path) as parse:
+        with TestClient(app) as client:
+            response = client.post(
+                "/openai/v1/chat/completions", json={"model": "private-model", "messages": []}
+            )
+    assert response.status_code == 403
+    parse.assert_called_once()
+    assert FakeOpenAISession.requests == []
+
+
+def test_chat_layers_reuse_model_and_groups(monkeypatch, route_modules):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    model = private_model()
+    model.access_control = {"read": {"group_ids": ["readers"]}}
+    lookup = Mock(return_value=model)
+    groups = Mock(return_value=[SimpleNamespace(id="readers")])
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    monkeypatch.setattr(route_modules.access_control.Groups, "get_groups_by_member_id", groups)
+    monkeypatch.setattr(openai, "has_access", route_modules.access_control.has_access)
+    request = make_request(app, "/api/chat/completions")
+
+    assert openai.get_model_for_request(request, model.id) is model
+    for _ in range(2):
+        route_modules.model_utils.check_model_access(regular_user(), {"id": model.id}, request)
+    assert openai.authorize_model_access(request, {"model": model.id}, regular_user()) is model
+    lookup.assert_called_once_with(model.id)
+    groups.assert_called_once_with(regular_user().id)
+
+
+def test_bulk_catalog_is_reused_for_customization_and_filtering(monkeypatch, route_modules):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    app.state.config.ENABLE_EVALUATION_ARENA_MODELS = False
+    model = private_model()
+    model.is_active = True
+    model.name = "Visible model"
+    model.model_dump = lambda: {}
+    model.access_control = None
+    bulk_lookup = Mock(return_value=[model])
+    lookup = Mock()
+    monkeypatch.setattr(route_modules.models, "get_all_models", bulk_lookup)
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    monkeypatch.setattr(openai, "has_access", route_modules.access_control.has_access)
+
+    async def all_base_models(*args, **kwargs):
+        return [{"id": model.id, "owned_by": "openai"}]
+
+    monkeypatch.setattr(route_modules.model_utils, "get_all_base_models", all_base_models)
+    request = make_request(app, "/api/models")
+    models = asyncio.run(route_modules.model_utils.get_all_models(request, regular_user()))
+    for _ in range(2):
+        visible = asyncio.run(openai.get_filtered_models({"data": models}, regular_user(), request))
+        assert [item["id"] for item in visible] == [model.id]
+    assert openai.get_model_for_request(request, "missing") is None
+    bulk_lookup.assert_called_once_with()
+    lookup.assert_not_called()
+
+
+def test_revoked_model_access_is_rechecked_on_next_request(monkeypatch, route_modules):
+    openai = route_modules.openai
+    app = configure_openai(monkeypatch, openai)
+    public = private_model()
+    public.access_control = None
+    lookup = Mock(side_effect=[public, private_model()])
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    monkeypatch.setattr(openai, "has_access", route_modules.access_control.has_access)
+    first = make_request(app, "/openai/chat/completions")
+    assert openai.authorize_model_access(first, {"model": public.id}, regular_user()) is public
+    second = make_request(app, "/openai/chat/completions")
+    with pytest.raises(HTTPException) as rejected:
+        openai.authorize_model_access(second, {"model": public.id}, regular_user())
+    assert rejected.value.status_code == 403
+    assert lookup.call_count == 2
+
+
+@pytest.mark.parametrize("rounds", (0, 1, 2, 3, 4, 5))
+def test_proxy_decode_depth_boundary(route_modules, rounds):
+    openai = route_modules.openai
+    path = "v1/chat/completions"
+    if rounds:
+        path = "v1/%" + "25" * (rounds - 1) + "63hat/completions"
+    if rounds <= openai.MAX_PROXY_DECODE_ROUNDS:
+        assert openai.normalize_proxy_path(path) == "v1/chat/completions"
+    else:
+        with pytest.raises(HTTPException) as rejected:
+            openai.normalize_proxy_path(path)
+        assert rejected.value.status_code == 400
+
+
+def test_oversized_proxy_path_is_rejected_before_decoding(route_modules):
+    openai = route_modules.openai
+    path = "x" * openai.MAX_PROXY_PATH_CHARS
+    assert openai.normalize_proxy_path(path) == path
+    with patch.object(openai, "unquote", wraps=openai.unquote) as decode:
+        with pytest.raises(HTTPException) as rejected:
+            openai.normalize_proxy_path(path + "x")
+    assert rejected.value.status_code == 414
+    decode.assert_not_called()
+
+
+@pytest.mark.parametrize("method", ("GET", "POST", "PUT", "DELETE"))
+def test_excessively_encoded_proxy_paths_never_reach_upstream(
+    monkeypatch, route_modules, method
+):
+    app = configure_openai(monkeypatch, route_modules.openai)
+    path = "/openai/v1/%" + "25" * 20 + "63hat/completions"
+    with TestClient(app) as client:
+        response = client.request(method, path, json={"model": "private-model", "messages": []})
+    assert response.status_code == 400
+    assert FakeOpenAISession.requests == []
+
+
+@pytest.mark.parametrize("provider", ("openai", "ollama"))
+def test_empty_model_list_does_not_read_the_database(monkeypatch, route_modules, provider):
+    router = getattr(route_modules, provider)
+    lookup = Mock()
+    bulk_lookup = Mock(return_value=[])
+    monkeypatch.setattr(route_modules.models, "get_model_by_id", lookup)
+    monkeypatch.setattr(route_modules.models, "get_all_models", bulk_lookup)
+    request = make_request(FastAPI(), "/models")
+    assert asyncio.run(router.get_filtered_models({}, regular_user(), request)) == []
+    lookup.assert_not_called()
+    bulk_lookup.assert_not_called()
