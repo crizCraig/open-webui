@@ -216,6 +216,48 @@ If you are running Open WebUI in an offline environment, you can set the `HF_HUB
 export HF_HUB_OFFLINE=1
 ```
 
+## Local Development with JetBrains Run Configurations 🛠️
+
+To run the backend locally, use the PyCharm/IntelliJ run configurations stored in `.idea/workspace.xml`. That file is gitignored, so on a fresh checkout you have to recreate them by hand using the settings below.
+
+All of them are **FastAPI** run configurations that share these settings:
+
+| Setting | Value |
+| --- | --- |
+| Application file | `$PROJECT_DIR$/backend/open_webui/main.py` |
+| Uvicorn options | `--reload --port 8080 --host 0.0.0.0 --forwarded-allow-ips '*'` |
+| Working directory | `$PROJECT_DIR$/backend` |
+| Python interpreter | conda env `open-webui-env` (`~/miniconda3/envs/open-webui-env/bin/python`) |
+| Env var (all configs) | `PORT=8080` |
+
+They differ only in their environment variables:
+
+| Configuration | Extra env vars | Use it for |
+| --- | --- | --- |
+| **`openwebui on PG`** (main one) | `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres` | Everyday local development against local Postgres. |
+| `openwebui on PG NO_CC_AUTH` | Same `DATABASE_URL`, plus `NO_CC_AUTH=true` and `GLOBAL_LOG_LEVEL=DEBUG` | Calling the `/cc` endpoints without credentials. Each request runs as a synthetic admin user. This is only allowed when `ENV=dev` (the default), and the server won't start otherwise. |
+| `openwebui on PG v5` | `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/openwebuiv5` | Running against the separate `openwebuiv5` database. |
+| `openwebui on PG polychat-prod-2025-01-10` | `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/polychat-prod-2025-01-10`, plus `WEBUI_SECRET_KEY` | Debugging against a local restore of the 2025-01-10 prod snapshot. `WEBUI_SECRET_KEY` has to match the key prod used, or the existing sessions and tokens from that snapshot won't validate. Don't commit the key. |
+| `openwebui on sqlite` | none | Quick runs on the default SQLite DB under `backend/data`. You don't need Postgres for this one. |
+
+The Postgres configs expect a local Postgres on `localhost:5432` with user and password `postgres`/`postgres`.
+
+The backend also loads the repo-root `.env` (gitignored) through `python-dotenv`, so you can leave the run configs alone and keep per-machine settings there.
+
+### Pointing local at the staging Polychat API
+
+To test staging, keep the backend running locally and send its OpenAI-compatible model traffic to the staging Polychat API. Set this in `.env` (or as an env var on the run config):
+
+```bash
+OPENAI_API_BASE_URLS=https://polychat-staging-421312241218.us-west2.run.app/v1
+```
+
+Then restart the run config. To go back to your normal providers, comment the line out again.
+
+### Frontend
+
+The run configs start only the backend, on port 8080. To get the Svelte dev server with hot reload, run `./local-dev-frontend.sh` in a separate terminal. It pins Node 22 via nvm, does a clean `npm install`, and runs `npm run dev`.
+
 ## What's Next? 🌟
 
 Discover upcoming features on our roadmap in the [Open WebUI Documentation](https://docs.openwebui.com/roadmap/).
