@@ -330,18 +330,12 @@
 					eventConfirmationTitle = data.title;
 					eventConfirmationMessage = data.message;
 				} else if (type === 'execute') {
-					eventCallback = cb;
+					// Disabled (GHSA-cm35-v4vp-5xvx): event-supplied code would run in this origin
+					// with access to the session token. Answer the caller so it doesn't wait.
+					console.warn('Ignoring execute event: execute events are disabled');
 
-					try {
-						// Use Function constructor to evaluate code in a safer way
-						const asyncFunction = new Function(`return (async () => { ${data.code} })()`);
-						const result = await asyncFunction(); // Await the result of the async function
-
-						if (cb) {
-							cb(result);
-						}
-					} catch (error) {
-						console.error('Error executing code:', error);
+					if (cb) {
+						cb({ error: 'execute events are disabled' });
 					}
 				} else if (type === 'input') {
 					eventCallback = cb;
