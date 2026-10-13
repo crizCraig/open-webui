@@ -586,9 +586,12 @@
 						}
 						tokenTimer = setInterval(checkTokenExpiry, 1000);
 					} else {
-						// Redirect Invalid Session User to /auth Page
+						// Redirect Invalid Session User to /auth Page. Already on /auth: stay, so its
+						// own ?redirect= (e.g. a payment return) isn't nested inside another one.
 						localStorage.removeItem('token');
-						await goto(`/auth?redirect=${encodedUrl}`);
+						if ($page.url.pathname !== '/auth') {
+							await goto(`/auth?redirect=${encodedUrl}`);
+						}
 					}
 				} else {
 					// Don't redirect if we're already on the auth page, legal, or pricing page

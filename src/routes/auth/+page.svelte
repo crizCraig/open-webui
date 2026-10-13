@@ -12,6 +12,12 @@
 	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
 
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
+	import { syncPolychatCookie } from '$lib/apis/polychat';
+	import {
+		goToPaymentReturn,
+		rememberPaymentReturn,
+		takePaymentReturn
+	} from '$lib/utils/paymentReturn';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
@@ -34,6 +40,34 @@
 		return urlParams.get(key);
 	};
 
+	// Allowlisted polychat /payment URL from ?redirect= (or remembered across OAuth), else null.
+	const takePaymentReturnTarget = () => {
+		try {
+			return takePaymentReturn(querystringValue('redirect'), sessionStorage);
+		} catch (error) {
+			console.error('Unable to read the payment return target:', error);
+			return null;
+		}
+	};
+
+	// Keep ?redirect=<payment URL> through an OAuth round trip, which drops the query string.
+	const rememberPaymentReturnTarget = () => {
+		try {
+			rememberPaymentReturn(querystringValue('redirect'), sessionStorage);
+		} catch (error) {
+			console.error('Unable to remember the payment return target:', error);
+		}
+	};
+
+	// Full-page navigation: the payment page is on another origin, so goto() can't reach it.
+	const leaveForPayment = async (target) => {
+		await goToPaymentReturn(
+			target,
+			(origin) => syncPolychatCookie(localStorage.token, origin),
+			(url) => window.location.assign(url)
+		);
+	};
+
 	const setSessionUser = async (sessionUser) => {
 		if (sessionUser) {
 			console.log(sessionUser);
@@ -52,10 +86,15 @@
 				// Clear the stored state
 				sessionStorage.removeItem('memtree_oauth');
 				goto('/memtree-api');
-			} else {
-				const redirectPath = querystringValue('redirect') || '/';
-				goto(redirectPath);
+				return;
 			}
+			const paymentReturn = takePaymentReturnTarget();
+			if (paymentReturn) {
+				await leaveForPayment(paymentReturn);
+				return;
+			}
+			const redirectPath = querystringValue('redirect') || '/';
+			goto(redirectPath);
 		}
 	};
 
@@ -156,13 +195,19 @@
 				sessionStorage.removeItem('memtree_oauth');
 				goto('/memtree-api');
 				return;
-			} else {
-				const redirectPath = querystringValue('redirect') || '/';
-				goto(redirectPath);
+			}
+			const paymentReturn = $user ? takePaymentReturnTarget() : null;
+			if (paymentReturn) {
+				await leaveForPayment(paymentReturn);
 				return;
 			}
+			const redirectPath = querystringValue('redirect') || '/';
+			goto(redirectPath);
+			return;
 		}
 		await checkOauthCallback();
+		// After an OAuth callback the target was already taken; this only (re)records or clears.
+		rememberPaymentReturnTarget();
 
 		loaded = true;
 		setLogoImage();

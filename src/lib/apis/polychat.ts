@@ -1,18 +1,22 @@
 import { getPolychatAppUrl } from '$lib/constants';
 
-let cookieSyncToken: string | undefined;
+let cookieSyncKey: string | undefined;
 let cookieSyncPromise: Promise<void> | undefined;
 
-export function syncPolychatCookie(token: string | undefined): Promise<void> {
+export function syncPolychatCookie(
+	token: string | undefined,
+	appUrl: string = getPolychatAppUrl()
+): Promise<void> {
 	if (!token) {
 		return Promise.reject(new Error('Cannot sync a Polychat cookie without a session token.'));
 	}
 
-	if (cookieSyncToken === token && cookieSyncPromise) {
+	const syncKey = `${appUrl} ${token}`;
+	if (cookieSyncKey === syncKey && cookieSyncPromise) {
 		return cookieSyncPromise;
 	}
 
-	const syncPromise = fetch(`${getPolychatAppUrl()}/set-cookie`, {
+	const syncPromise = fetch(`${appUrl}/set-cookie`, {
 		method: 'POST',
 		mode: 'cors',
 		credentials: 'include',
@@ -28,12 +32,12 @@ export function syncPolychatCookie(token: string | undefined): Promise<void> {
 
 	const sharedPromise = syncPromise.finally(() => {
 		if (cookieSyncPromise === sharedPromise) {
-			cookieSyncToken = undefined;
+			cookieSyncKey = undefined;
 			cookieSyncPromise = undefined;
 		}
 	});
 
-	cookieSyncToken = token;
+	cookieSyncKey = syncKey;
 	cookieSyncPromise = sharedPromise;
 
 	return sharedPromise;
