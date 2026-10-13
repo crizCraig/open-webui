@@ -14,9 +14,10 @@
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { syncPolychatCookie } from '$lib/apis/polychat';
 	import {
+		beginAuthVisit,
 		goToPaymentReturn,
-		rememberPaymentReturn,
-		takePaymentReturn
+		paymentReturnAfterSignIn,
+		rememberPaymentReturn
 	} from '$lib/utils/paymentReturn';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -40,23 +41,29 @@
 		return urlParams.get(key);
 	};
 
-	// Allowlisted polychat /payment URL from ?redirect= (or remembered across OAuth), else null.
-	const takePaymentReturnTarget = () => {
+	// OAuth sign-in comes back to /auth#token=..., without the query string.
+	const isOAuthReturn = () => new URLSearchParams($page.url.hash.substring(1)).has('token');
+
+	// Session storage can throw (blocked site data); a payment return is then just skipped.
+	const withPaymentStorage = (action, fallback = null) => {
 		try {
-			return takePaymentReturn(querystringValue('redirect'), sessionStorage);
+			return action(sessionStorage);
 		} catch (error) {
-			console.error('Unable to read the payment return target:', error);
-			return null;
+			console.error('Payment return storage unavailable:', error);
+			return fallback;
 		}
 	};
 
-	// Keep ?redirect=<payment URL> through an OAuth round trip, which drops the query string.
-	const rememberPaymentReturnTarget = () => {
-		try {
-			rememberPaymentReturn(querystringValue('redirect'), sessionStorage);
-		} catch (error) {
-			console.error('Unable to remember the payment return target:', error);
-		}
+	// Allowlisted polychat /payment URL to return to once signed in, else null.
+	const paymentReturnTarget = (viaOAuth) =>
+		withPaymentStorage((storage) =>
+			paymentReturnAfterSignIn(querystringValue('redirect'), viaOAuth, storage)
+		);
+
+	// Remember a payment ?redirect= across the OAuth round trip, then start it.
+	const startOAuth = (provider) => {
+		withPaymentStorage((storage) => rememberPaymentReturn(querystringValue('redirect'), storage));
+		window.location.href = `${WEBUI_BASE_URL}/oauth/${provider}/login`;
 	};
 
 	// Full-page navigation: the payment page is on another origin, so goto() can't reach it.
@@ -68,7 +75,7 @@
 		);
 	};
 
-	const setSessionUser = async (sessionUser) => {
+	const setSessionUser = async (sessionUser, viaOAuth = false) => {
 		if (sessionUser) {
 			console.log(sessionUser);
 			toast.success($i18n.t(`You're now logged in.`));
@@ -88,7 +95,7 @@
 				goto('/memtree-api');
 				return;
 			}
-			const paymentReturn = takePaymentReturnTarget();
+			const paymentReturn = paymentReturnTarget(viaOAuth);
 			if (paymentReturn) {
 				await leaveForPayment(paymentReturn);
 				return;
@@ -157,7 +164,7 @@
 			return;
 		}
 		localStorage.token = token;
-		await setSessionUser(sessionUser);
+		await setSessionUser(sessionUser, true);
 	};
 
 	let onboarding = false;
@@ -186,6 +193,7 @@
 	}
 
 	onMount(async () => {
+		withPaymentStorage((storage) => beginAuthVisit(isOAuthReturn(), storage));
 		if ($user !== undefined) {
 			// Check if user is already logged in and coming from memtree.dev
 			const memtreeParam = querystringValue('memtree');
@@ -196,7 +204,7 @@
 				goto('/memtree-api');
 				return;
 			}
-			const paymentReturn = $user ? takePaymentReturnTarget() : null;
+			const paymentReturn = $user ? paymentReturnTarget(false) : null;
 			if (paymentReturn) {
 				await leaveForPayment(paymentReturn);
 				return;
@@ -206,8 +214,6 @@
 			return;
 		}
 		await checkOauthCallback();
-		// After an OAuth callback the target was already taken; this only (re)records or clears.
-		rememberPaymentReturnTarget();
 
 		loaded = true;
 		setLogoImage();
@@ -218,7 +224,7 @@
 			// Store memtree state in sessionStorage before OAuth redirect
 			sessionStorage.setItem('memtree_oauth', 'true');
 			// Redirect immediately to Google auth for memtree users
-			window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
+			startOAuth('google');
 			return;
 		}
 
@@ -456,7 +462,7 @@
 									<button
 										class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
 										on:click={() => {
-											window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
+											startOAuth('google');
 										}}
 									>
 										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="size-6 mr-3">
@@ -481,7 +487,7 @@
 									<button
 										class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
 										on:click={() => {
-											window.location.href = `${WEBUI_BASE_URL}/oauth/microsoft/login`;
+											startOAuth('microsoft');
 										}}
 									>
 										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" class="size-6 mr-3">
@@ -506,7 +512,7 @@
 									<button
 										class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
 										on:click={() => {
-											window.location.href = `${WEBUI_BASE_URL}/oauth/github/login`;
+											startOAuth('github');
 										}}
 									>
 										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-6 mr-3">
@@ -522,7 +528,7 @@
 									<button
 										class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
 										on:click={() => {
-											window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
+											startOAuth('oidc');
 										}}
 									>
 										<svg

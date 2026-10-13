@@ -7,16 +7,26 @@
  * polychat origin + `/payment` + an optional query string. Everything else is rejected, so
  * this is not an open redirect.
  *
+ * Only origins in the same site as this app are allowed: the return first syncs the polychat
+ * session cookie with a credentialed fetch, and browsers refuse cookies from cross-site
+ * responses (so the staging run.app host can't work and is not listed; its payment page
+ * keeps a manual "Continue to payment" fallback). The local dev API host is added only in
+ * dev builds.
+ *
  * Google (and other OAuth) sign-in leaves this page and comes back to `/auth#token=...`
  * without the query string, so the validated target is kept in sessionStorage for the
- * round trip, the same way `memtree_oauth` is.
+ * round trip, the same way `memtree_oauth` is. It is written only when an OAuth sign-in is
+ * started from a payment-return visit, cleared by every other /auth visit, and read only on
+ * the OAuth return, so it can never override a later visit's own redirect.
  */
 
-export const PAYMENT_RETURN_ORIGINS: readonly string[] = [
-	'https://app.polychat.co',
-	'https://polychat-staging-421312241218.us-west2.run.app',
-	'http://local.polychat.co:8000'
-];
+import { dev } from '$app/environment';
+
+export const PRODUCTION_PAYMENT_RETURN_ORIGINS: readonly string[] = ['https://app.polychat.co'];
+export const DEV_PAYMENT_RETURN_ORIGIN = 'http://local.polychat.co:8000';
+export const PAYMENT_RETURN_ORIGINS: readonly string[] = dev
+	? [...PRODUCTION_PAYMENT_RETURN_ORIGINS, DEV_PAYMENT_RETURN_ORIGIN]
+	: PRODUCTION_PAYMENT_RETURN_ORIGINS;
 
 export const PAYMENT_RETURN_PATH = '/payment';
 export const PAYMENT_RETURN_STORAGE_KEY = 'payment_return';
@@ -44,14 +54,17 @@ interface StoredPaymentReturn {
  * The normalized payment URL if `raw` is exactly an allowlisted origin + `/payment`
  * (optionally followed by `?query`), else null.
  */
-export function parsePaymentReturnUrl(raw: unknown): string | null {
+export function parsePaymentReturnUrl(
+	raw: unknown,
+	origins: readonly string[] = PAYMENT_RETURN_ORIGINS
+): string | null {
 	if (typeof raw !== 'string' || raw.length > PAYMENT_RETURN_MAX_LENGTH) {
 		return null;
 	}
 	if (FORBIDDEN_CHARS.test(raw)) {
 		return null;
 	}
-	const origin = PAYMENT_RETURN_ORIGINS.find((allowed) => hasPaymentPrefix(raw, allowed));
+	const origin = origins.find((allowed) => hasPaymentPrefix(raw, allowed));
 	if (!origin) {
 		return null;
 	}
@@ -59,8 +72,19 @@ export function parsePaymentReturnUrl(raw: unknown): string | null {
 }
 
 /**
- * Remember (or forget) the payment target named by this visit's `redirect` query value,
- * so it survives an OAuth round trip that drops the query string.
+ * Call on every /auth page load, before any navigation. Anything but the OAuth return
+ * (`/auth#token=`) forgets a remembered target, so an abandoned payment sign-in can't
+ * redirect a later, unrelated visit.
+ */
+export function beginAuthVisit(isOAuthReturn: boolean, storage: PaymentReturnStorage): void {
+	if (!isOAuthReturn) {
+		forgetPaymentReturn(storage);
+	}
+}
+
+/**
+ * Call when starting an OAuth sign-in: remember this visit's `redirect` if it is a payment
+ * target (it survives the round trip that drops the query string), else forget.
  */
 export function rememberPaymentReturn(
 	redirect: string | null,
@@ -69,7 +93,7 @@ export function rememberPaymentReturn(
 ): void {
 	const url = parsePaymentReturnUrl(redirect);
 	if (!url) {
-		storage.removeItem(PAYMENT_RETURN_STORAGE_KEY);
+		forgetPaymentReturn(storage);
 		return;
 	}
 	const stored: StoredPaymentReturn = { url, savedAt: now };
@@ -77,17 +101,23 @@ export function rememberPaymentReturn(
 }
 
 /**
- * The payment target to go to after sign-in: this visit's `redirect` query value if valid,
- * else a fresh one remembered before an OAuth round trip. Always clears the remembered one.
+ * The payment target to go to once signed in, or null for the normal redirect. On the OAuth
+ * return it is the target remembered when that sign-in started; otherwise (password sign-in,
+ * already signed in) only this visit's own `redirect` counts. Always clears the remembered one.
  */
-export function takePaymentReturn(
+export function paymentReturnAfterSignIn(
 	redirect: string | null,
+	viaOAuth: boolean,
 	storage: PaymentReturnStorage,
 	now: number = Date.now()
 ): string | null {
 	const stored = storage.getItem(PAYMENT_RETURN_STORAGE_KEY);
+	forgetPaymentReturn(storage);
+	return viaOAuth ? parseStored(stored, now) : parsePaymentReturnUrl(redirect);
+}
+
+export function forgetPaymentReturn(storage: PaymentReturnStorage): void {
 	storage.removeItem(PAYMENT_RETURN_STORAGE_KEY);
-	return parsePaymentReturnUrl(redirect) ?? parseStored(stored, now);
 }
 
 /**

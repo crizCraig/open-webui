@@ -1,17 +1,23 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+	DEV_PAYMENT_RETURN_ORIGIN,
 	PAYMENT_RETURN_MAX_AGE_MS,
 	PAYMENT_RETURN_STORAGE_KEY,
+	PRODUCTION_PAYMENT_RETURN_ORIGINS,
+	beginAuthVisit,
 	goToPaymentReturn,
 	parsePaymentReturnUrl,
+	paymentReturnAfterSignIn,
 	rememberPaymentReturn,
-	takePaymentReturn,
 	type PaymentReturnStorage
 } from '$lib/utils/paymentReturn';
 
 const PROD = 'https://app.polychat.co/payment';
 const QUERY = '?user_id=u1&user_email=a%40b.co&price_id=price_123&source=ccc';
+const STAGING = 'https://polychat-staging-421312241218.us-west2.run.app/payment';
+const LOCAL = 'http://local.polychat.co:8000/payment?source=ccc';
+const WITH_DEV = [...PRODUCTION_PAYMENT_RETURN_ORIGINS, DEV_PAYMENT_RETURN_ORIGIN];
 
 function memoryStorage(): PaymentReturnStorage & { data: Map<string, string> } {
 	const data = new Map<string, string>();
@@ -28,17 +34,26 @@ describe('parsePaymentReturnUrl accepts', () => {
 		[PROD, PROD],
 		[`${PROD}${QUERY}`, `${PROD}${QUERY}`],
 		[`${PROD}?`, PROD],
-		[
-			'https://polychat-staging-421312241218.us-west2.run.app/payment?price_id=p',
-			'https://polychat-staging-421312241218.us-west2.run.app/payment?price_id=p'
-		],
-		[
-			'http://local.polychat.co:8000/payment?source=ccc',
-			'http://local.polychat.co:8000/payment?source=ccc'
-		],
 		[`${PROD}?next=https%3A%2F%2Fevil.com`, `${PROD}?next=https%3A%2F%2Fevil.com`]
 	])('%s', (raw, expected) => {
-		expect(parsePaymentReturnUrl(raw)).toBe(expected);
+		expect(parsePaymentReturnUrl(raw, PRODUCTION_PAYMENT_RETURN_ORIGINS)).toBe(expected);
+	});
+});
+
+describe('allowed origins', () => {
+	test('production allows only app.polychat.co', () => {
+		expect(PRODUCTION_PAYMENT_RETURN_ORIGINS).toEqual(['https://app.polychat.co']);
+		expect(parsePaymentReturnUrl(LOCAL, PRODUCTION_PAYMENT_RETURN_ORIGINS)).toBeNull();
+	});
+
+	test('the staging run.app host is never allowed (it cannot receive the cookie)', () => {
+		expect(parsePaymentReturnUrl(`${STAGING}?price_id=p`, WITH_DEV)).toBeNull();
+		expect(parsePaymentReturnUrl(`${STAGING}?price_id=p`)).toBeNull();
+	});
+
+	test('the local dev API host is allowed only alongside the dev origin', () => {
+		expect(parsePaymentReturnUrl(LOCAL, WITH_DEV)).toBe(LOCAL);
+		expect(parsePaymentReturnUrl('http://local.polychat.co/payment', WITH_DEV)).toBeNull();
 	});
 });
 
@@ -98,56 +113,81 @@ describe('parsePaymentReturnUrl rejects', () => {
 		'https://polychat-staging-421312241218.us-west2.run.app.evil.com/payment',
 		`${PROD}?${'a'.repeat(2100)}`
 	])('%s', (raw) => {
-		expect(parsePaymentReturnUrl(raw)).toBeNull();
+		expect(parsePaymentReturnUrl(raw, WITH_DEV)).toBeNull();
 	});
 });
 
-describe('remember and take', () => {
-	test('remembered target survives an OAuth round trip without the query', () => {
+// One /auth page load: beginAuthVisit on mount, then paymentReturnAfterSignIn once signed in.
+function visit(
+	storage: PaymentReturnStorage,
+	redirect: string | null,
+	viaOAuth: boolean,
+	now = 0
+): string | null {
+	beginAuthVisit(viaOAuth, storage);
+	return paymentReturnAfterSignIn(redirect, viaOAuth, storage, now);
+}
+
+describe('remembered payment return', () => {
+	test('a payment target remembered at OAuth start survives the query-less OAuth return', () => {
 		const storage = memoryStorage();
+		beginAuthVisit(false, storage);
 		rememberPaymentReturn(`${PROD}${QUERY}`, storage, 1000);
-		expect(takePaymentReturn(null, storage, 2000)).toBe(`${PROD}${QUERY}`);
+		expect(visit(storage, null, true, 2000)).toBe(`${PROD}${QUERY}`);
 		expect(storage.data.has(PAYMENT_RETURN_STORAGE_KEY)).toBe(false);
-		expect(takePaymentReturn(null, storage, 3000)).toBeNull();
+		expect(visit(storage, null, true, 3000)).toBeNull();
 	});
 
-	test('an invalid or missing redirect forgets any earlier target', () => {
+	test('password sign-in and already-signed-in visits use only the query', () => {
+		const storage = memoryStorage();
+		expect(visit(storage, `${PROD}${QUERY}`, false)).toBe(`${PROD}${QUERY}`);
+		expect(visit(storage, '/c/123', false)).toBeNull();
+	});
+
+	test('an abandoned payment OAuth flow never hijacks an explicit redirect', () => {
+		const storage = memoryStorage();
+		rememberPaymentReturn(PROD, storage, 0); // clicked Google on the payment flow, gave up
+		expect(visit(storage, '/c/123', false, 1)).toBeNull();
+		expect(storage.data.has(PAYMENT_RETURN_STORAGE_KEY)).toBe(false);
+	});
+
+	test('an abandoned payment OAuth flow never hijacks a bare /auth visit', () => {
+		const storage = memoryStorage();
+		rememberPaymentReturn(PROD, storage, 0);
+		expect(visit(storage, null, false, 1)).toBeNull();
+		expect(storage.data.has(PAYMENT_RETURN_STORAGE_KEY)).toBe(false);
+	});
+
+	test('an abandoned flow is cleared on mount, so a later plain OAuth return is normal', () => {
+		const storage = memoryStorage();
+		rememberPaymentReturn(PROD, storage, 0);
+		beginAuthVisit(false, storage); // a later /auth visit
+		rememberPaymentReturn(null, storage, 1); // started OAuth from plain /auth
+		expect(visit(storage, null, true, 2)).toBeNull();
+	});
+
+	test('an invalid redirect at OAuth start forgets any earlier target', () => {
 		const storage = memoryStorage();
 		rememberPaymentReturn(PROD, storage, 0);
 		rememberPaymentReturn('https://evil.com/payment', storage, 0);
 		expect(storage.data.has(PAYMENT_RETURN_STORAGE_KEY)).toBe(false);
-		rememberPaymentReturn(PROD, storage, 0);
-		rememberPaymentReturn(null, storage, 0);
-		expect(takePaymentReturn(null, storage, 0)).toBeNull();
-	});
-
-	test('the query target wins over a remembered one and still clears it', () => {
-		const storage = memoryStorage();
-		rememberPaymentReturn(`${PROD}?price_id=old`, storage, 0);
-		expect(takePaymentReturn(`${PROD}?price_id=new`, storage, 0)).toBe(`${PROD}?price_id=new`);
-		expect(storage.data.size).toBe(0);
 	});
 
 	test('a stale remembered target is ignored', () => {
 		const storage = memoryStorage();
 		rememberPaymentReturn(PROD, storage, 0);
-		expect(takePaymentReturn(null, storage, PAYMENT_RETURN_MAX_AGE_MS + 1)).toBeNull();
+		expect(visit(storage, null, true, PAYMENT_RETURN_MAX_AGE_MS + 1)).toBeNull();
 	});
 
 	test('tampered or malformed storage is revalidated and ignored', () => {
 		const storage = memoryStorage();
 		const tampered = JSON.stringify({ url: 'https://evil.com/payment', savedAt: 0 });
 		storage.setItem(PAYMENT_RETURN_STORAGE_KEY, tampered);
-		expect(takePaymentReturn(null, storage, 0)).toBeNull();
+		expect(visit(storage, null, true)).toBeNull();
 		storage.setItem(PAYMENT_RETURN_STORAGE_KEY, '{not json');
-		expect(takePaymentReturn(null, storage, 0)).toBeNull();
+		expect(visit(storage, null, true)).toBeNull();
 		storage.setItem(PAYMENT_RETURN_STORAGE_KEY, JSON.stringify({ url: PROD, savedAt: 10 }));
-		expect(takePaymentReturn(null, storage, 0)).toBeNull(); // from the future
-	});
-
-	test('a non-payment redirect never comes back as a payment target', () => {
-		const storage = memoryStorage();
-		expect(takePaymentReturn('/c/123', storage, 0)).toBeNull();
+		expect(visit(storage, null, true, 0)).toBeNull(); // from the future
 	});
 });
 
