@@ -21,25 +21,27 @@
 
 	const dispatch = createEventDispatcher();
 
-	async function openPayment(event: MouseEvent): Promise<void> {
+	// Polychat pages (billing, usage) authenticate with polychat's session cookie, so sync it
+	// before navigating the new tab there.
+	async function openPolychatPage(event: MouseEvent, pageName: string): Promise<void> {
 		event.preventDefault();
 
-		const paymentWindow = window.open('', '_blank');
-		if (!paymentWindow) {
-			console.error('Unable to open billing window.');
+		const pageWindow = window.open('', '_blank');
+		if (!pageWindow) {
+			console.error(`Unable to open ${pageName} window.`);
 			return;
 		}
-		paymentWindow.opener = null;
+		pageWindow.opener = null;
 
 		try {
 			await navigateAfterCookieSync(
 				event,
 				() => syncPolychatCookie(localStorage.token),
-				(destination) => paymentWindow.location.replace(destination)
+				(destination) => pageWindow.location.replace(destination)
 			);
 		} catch (error) {
-			console.error('Failed to set Polychat cookie before opening billing:', error);
-			paymentWindow.close();
+			console.error(`Failed to set Polychat cookie before opening ${pageName}:`, error);
+			pageWindow.close();
 		}
 	}
 </script>
@@ -113,7 +115,7 @@
 					target="_blank"
 					rel="noopener noreferrer"
 					on:click={async (event) => {
-						await openPayment(event);
+						await openPolychatPage(event, 'billing');
 						show = false;
 						if ($mobile) {
 							showSidebar.set(false);
@@ -133,6 +135,34 @@
 						</svg>
 					</div>
 					<div class=" self-center truncate">{$i18n.t('Billing')}</div>
+				</a>
+
+				<a
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					href={`${getPolychatAppUrl()}/usage`}
+					target="_blank"
+					rel="noopener noreferrer"
+					on:click={async (event) => {
+						await openPolychatPage(event, 'usage');
+						show = false;
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}}
+				>
+					<div class=" self-center mr-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="w-4 h-4"
+						>
+							<path
+								d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h1a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 2h-1ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h1a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10.5 6h-1ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h1A1.5 1.5 0 0 0 6 16.5v-5A1.5 1.5 0 0 0 4.5 10h-1Z"
+							/>
+						</svg>
+					</div>
+					<div class=" self-center truncate">{$i18n.t('Usage')}</div>
 				</a>
 			{/if}
 
