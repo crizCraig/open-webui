@@ -414,3 +414,19 @@ export const updateUserById = async (token: string, userId: string, user: UserUp
 
 	return res;
 };
+
+// Where a new account came from (see $lib/utils/signupSource). keepalive: sign-in may
+// navigate away (e.g. to the payment page) right after this is sent.
+export const recordSignupSource = async (token: string, source: object) => {
+	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/signup-source`, {
+		method: 'POST',
+		keepalive: true,
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(source)
+	});
+	if (!res.ok) throw new Error(`Signup source request failed: ${res.status}`);
+	return res.json();
+};

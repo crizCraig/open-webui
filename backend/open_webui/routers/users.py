@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Optional
 
 from open_webui.models.auths import Auths
@@ -22,6 +23,7 @@ from pydantic import BaseModel
 
 from open_webui.utils.auth import get_admin_user, get_password_hash, get_verified_user
 from open_webui.utils.access_control import get_permissions, has_permission
+from open_webui.utils.signup_source import signup_source_info_update
 
 
 log = logging.getLogger(__name__)
@@ -286,6 +288,31 @@ async def update_user_info_by_session_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ERROR_MESSAGES.USER_NOT_FOUND,
         )
+
+
+############################
+# RecordSignupSource
+############################
+
+
+class SignupSourceForm(BaseModel):
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    ref: Optional[str] = None
+    referrer: Optional[str] = None
+
+
+@router.post("/user/signup-source")
+async def record_signup_source(form_data: SignupSourceForm, user=Depends(get_verified_user)):
+    """Record where a new account came from, once (see utils/signup_source.py)."""
+    info = signup_source_info_update(
+        user.info, user.created_at, int(time.time()), form_data.model_dump()
+    )
+    if info is None:
+        return {"recorded": False}
+    Users.update_user_by_id(user.id, {"info": info})
+    return {"recorded": True}
 
 
 ############################

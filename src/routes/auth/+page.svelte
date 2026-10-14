@@ -13,6 +13,8 @@
 
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { syncPolychatCookie } from '$lib/apis/polychat';
+	import { recordSignupSource } from '$lib/apis/users';
+	import { sendStoredSignupSource } from '$lib/utils/signupSource';
 	import {
 		beginAuthVisit,
 		goToPaymentReturn,
@@ -85,6 +87,7 @@
 			$socket.emit('user-join', { auth: { token: sessionUser.token } });
 			await user.set(sessionUser);
 			await config.set(await getBackendConfig());
+			sendSignupSource(sessionUser.token ?? localStorage.token);
 
 			// Check if user is coming from memtree.dev
 			const memtreeParam = querystringValue('memtree');
@@ -102,6 +105,17 @@
 			}
 			const redirectPath = querystringValue('redirect') || '/';
 			goto(redirectPath);
+		}
+	};
+
+	// Fire and forget: recorded only for a new account (see $lib/utils/signupSource).
+	const sendSignupSource = (token) => {
+		try {
+			sendStoredSignupSource((source) => recordSignupSource(token, source), localStorage).catch(
+				(error) => console.error('Signup source unavailable:', error)
+			);
+		} catch (error) {
+			console.error('Signup source unavailable:', error);
 		}
 	};
 

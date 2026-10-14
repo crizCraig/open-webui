@@ -48,6 +48,7 @@
 	import NotificationToast from '$lib/components/NotificationToast.svelte';
 	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
 	import { chatCompletion } from '$lib/apis/openai';
+	import { captureSignupSource } from '$lib/utils/signupSource';
 
 	setContext('i18n', i18n);
 
@@ -463,6 +464,12 @@
 	};
 
 	onMount(async () => {
+		// First, before any redirect drops the landing page's query string.
+		try {
+			captureSignupSource(new URL(window.location.href), document.referrer, localStorage);
+		} catch (error) {
+			console.error('Signup source capture failed:', error);
+		}
 		if (typeof window !== 'undefined' && window.applyTheme) {
 			window.applyTheme();
 		}

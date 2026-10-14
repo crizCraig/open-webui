@@ -42,6 +42,17 @@
 		}
 	};
 	
+	const INSTALL_COMMAND = 'npm install -g claude-code-infinite';
+	let installCopied = false;
+
+	const copyInstall = async () => {
+		await copyToClipboard(INSTALL_COMMAND);
+		installCopied = true;
+		setTimeout(() => {
+			installCopied = false;
+		}, 2000);
+	};
+
 	const copyAgain = async () => {
 		await copyToClipboard(apiKey);
 		copied = true;
@@ -134,7 +145,7 @@
 							{$i18n.t('Your PolyChat API Key')}
 						</div>
 						<div class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-							{$i18n.t('Your API key has been created. Copy it below and use this key to connect to our API, including MemTree memory, to your AI assistant.')}
+							{$i18n.t('Your API key has been created. Copy it below.')}
 						</div>
 					</div>
 					
@@ -185,6 +196,45 @@
 							{/if}
 						</button>
 						
+						<div
+							class="mt-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+							data-testid="claude-code-setup"
+						>
+							<div class="text-base font-medium mb-1">{$i18n.t('Use it with Claude Code')}</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+								{$i18n.t(
+									'Long sessions stay fast, and every session gets a searchable MemTree.'
+								)}
+							</div>
+							<div class="text-sm mb-1">{$i18n.t('1. Install (Node 20.3 or later)')}</div>
+							<div
+								class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded px-3 py-2 mb-3"
+							>
+								<code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs"
+									>{INSTALL_COMMAND}</code
+								>
+								<button
+									class="shrink-0 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition"
+									on:click={copyInstall}
+								>
+									{installCopied ? $i18n.t('Copied!') : $i18n.t('Copy')}
+								</button>
+							</div>
+							<div class="text-sm">
+								{$i18n.t('2. In a project, run')}
+								<code class="font-mono bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5">ccc</code>
+								{$i18n.t(
+									'instead of claude. The first time, it asks for your key. Paste the one above.'
+								)}
+							</div>
+						</div>
+
+						<div class="text-xs text-gray-500 dark:text-gray-400 text-left">
+							{$i18n.t(
+								'Using the API directly? Use this key to connect to our API, including MemTree memory, to your AI assistant.'
+							)}
+						</div>
+
 						<!-- Maybe enable this for a non memtree use-case -->
 						<!-- <button
 							class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition underline"
