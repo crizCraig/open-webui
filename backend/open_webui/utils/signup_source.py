@@ -32,6 +32,11 @@ def signup_source_info_update(
     return {**info, SIGNUP_SOURCE_INFO_KEY: {**source, "recorded_at": now}}
 
 
+def without_signup_source(info_update: dict) -> dict:
+    """A user's own `info` update minus the signup source, which they may not set."""
+    return {k: v for k, v in info_update.items() if k != SIGNUP_SOURCE_INFO_KEY}
+
+
 def clean_signup_source(raw: dict) -> Optional[dict]:
     """The allowed, well-formed fields of `raw`, or None when none are left."""
     source = {}

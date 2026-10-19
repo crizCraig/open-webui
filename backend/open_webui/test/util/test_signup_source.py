@@ -3,6 +3,7 @@ from open_webui.utils.signup_source import (
     SIGNUP_WINDOW_SECONDS,
     clean_signup_source,
     signup_source_info_update,
+    without_signup_source,
 )
 
 NOW = 1_800_000_000
@@ -52,3 +53,8 @@ def test_update_skips_old_accounts_and_empty_sources():
     assert signup_source_info_update(None, NOW, NOW, {"ref": "hn"}) == {
         SIGNUP_SOURCE_INFO_KEY: {"ref": "hn", "recorded_at": NOW}
     }
+
+
+def test_users_cannot_set_signup_source_through_info_update():
+    update = {"location": "x", SIGNUP_SOURCE_INFO_KEY: {"utm_source": "<b>"}}
+    assert without_signup_source(update) == {"location": "x"}

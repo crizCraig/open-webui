@@ -206,6 +206,9 @@
 									'Long sessions stay fast, and every session gets a searchable MemTree.'
 								)}
 							</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+								{$i18n.t('Needs Claude Code installed and signed in with a Claude Pro or Max plan.')}
+							</div>
 							<div class="text-sm mb-1">{$i18n.t('1. Install (Node 20.3 or later)')}</div>
 							<div
 								class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded px-3 py-2 mb-3"

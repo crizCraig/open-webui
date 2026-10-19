@@ -23,7 +23,10 @@ from pydantic import BaseModel
 
 from open_webui.utils.auth import get_admin_user, get_password_hash, get_verified_user
 from open_webui.utils.access_control import get_permissions, has_permission
-from open_webui.utils.signup_source import signup_source_info_update
+from open_webui.utils.signup_source import (
+    signup_source_info_update,
+    without_signup_source,
+)
 
 
 log = logging.getLogger(__name__)
@@ -275,6 +278,8 @@ async def update_user_info_by_session_user(
         if user.info is None:
             user.info = {}
 
+        # signup_source is written only by /user/signup-source, once.
+        form_data = without_signup_source(form_data)
         user = Users.update_user_by_id(user.id, {"info": {**user.info, **form_data}})
         if user:
             return user.info
