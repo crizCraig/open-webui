@@ -16,6 +16,8 @@ export const SIGNUP_SOURCE_STORAGE_KEY = 'signup_source';
 export const SIGNUP_SOURCE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 export const SIGNUP_SOURCE_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'ref'] as const;
 export const OWN_SITE_DOMAIN = 'polychat.co';
+// Sign-in providers: a cancelled or failed OAuth comes back to /auth?error=... without #token.
+const SIGN_IN_HOSTS = ['accounts.google.com'];
 const MAX_VALUE_LENGTH = 64;
 const VALUE_PATTERN = /^[A-Za-z0-9._~+\- ]+$/;
 
@@ -108,5 +110,5 @@ function referrerHost(referrer: string, ownHost: string): string | null {
 		return null;
 	}
 	const ownSite = host === OWN_SITE_DOMAIN || host.endsWith(`.${OWN_SITE_DOMAIN}`);
-	return host && host !== ownHost && !ownSite ? host : null;
+	return host && host !== ownHost && !ownSite && !SIGN_IN_HOSTS.includes(host) ? host : null;
 }

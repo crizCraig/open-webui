@@ -39,6 +39,7 @@ describe('signupSourceFromVisit', () => {
 	test('ignores our own site, junk referrers and odd values', () => {
 		expect(signupSourceFromVisit(visit('/'), 'https://app.polychat.co/payment')).toBeNull();
 		expect(signupSourceFromVisit(visit('/'), 'https://polychat.co/h')).toBeNull();
+		expect(signupSourceFromVisit(visit('/auth?error=x'), 'https://accounts.google.com/')).toBeNull();
 		expect(signupSourceFromVisit(visit('/'), 'not a url')).toBeNull();
 		expect(signupSourceFromVisit(visit('/'), '')).toBeNull();
 		expect(signupSourceFromVisit(visit('/?utm_source=%3Cscript%3E'), '')).toBeNull();
