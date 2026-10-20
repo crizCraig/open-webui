@@ -49,6 +49,7 @@ from open_webui.utils.auth import (
     get_http_authorization_cred,
 )
 from open_webui.utils.webhook import post_webhook
+from open_webui.utils.payment_switch import delete_session_cookie
 from open_webui.utils.access_control import get_permissions
 
 from typing import Optional, List
@@ -568,7 +569,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 
 @router.get("/signout")
 async def signout(request: Request, response: Response):
-    response.delete_cookie("token")
+    delete_session_cookie(response, WEBUI_SESSION_COOKIE_DOMAIN)
     oidc_logout_failed_detail = None
 
     if ENABLE_OAUTH_SIGNUP.value:

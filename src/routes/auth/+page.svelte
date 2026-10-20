@@ -6,7 +6,13 @@
 	import { page } from '$app/stores';
 
 	import { getBackendConfig } from '$lib/apis';
-	import { ldapUserSignIn, getSessionUser, userSignIn, userSignUp } from '$lib/apis/auths';
+	import {
+		ldapUserSignIn,
+		getSessionUser,
+		userSignIn,
+		userSignOut,
+		userSignUp
+	} from '$lib/apis/auths';
 
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
@@ -18,9 +24,18 @@
 	import {
 		beginAuthVisit,
 		goToPaymentReturn,
+		parsePaymentReturnUrl,
 		paymentReturnAfterSignIn,
 		rememberPaymentReturn
 	} from '$lib/utils/paymentReturn';
+	import {
+		SWITCH_ACCOUNT_PARAM,
+		oauthLoginParams,
+		paymentAccountHint,
+		paymentLinkFromCcc,
+		signInAgainPath,
+		switchAccountDecision
+	} from '$lib/utils/paymentSwitch';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
@@ -36,6 +51,12 @@
 	let password = '';
 
 	let ldapUsername = '';
+
+	// Polychat payment sign-in: the account to use (masked), and a switch awaiting a click.
+	let paymentReturnVisit = false;
+	let paymentHint = null;
+	let paymentFromCcc = false;
+	let switchConfirm = null;
 
 	const querystringValue = (key) => {
 		const querystring = window.location.search;
@@ -62,10 +83,37 @@
 			paymentReturnAfterSignIn(querystringValue('redirect'), viaOAuth, storage)
 		);
 
-	// Remember a payment ?redirect= across the OAuth round trip, then start it.
+	// Remember a payment ?redirect= across the OAuth round trip, then start it. Google gets
+	// the payment link's account as login_hint so the right Google account is picked.
 	const startOAuth = (provider) => {
 		withPaymentStorage((storage) => rememberPaymentReturn(querystringValue('redirect'), storage));
-		window.location.href = `${WEBUI_BASE_URL}/oauth/${provider}/login`;
+		const hint = provider === 'google' ? oauthLoginParams(querystringValue('redirect')) : '';
+		window.location.href = `${WEBUI_BASE_URL}/oauth/${provider}/login${hint}`;
+	};
+
+	const readPaymentLink = () => {
+		const redirect = querystringValue('redirect');
+		paymentReturnVisit = parsePaymentReturnUrl(redirect) !== null;
+		paymentHint = paymentAccountHint(redirect);
+		paymentFromCcc = paymentLinkFromCcc(redirect);
+	};
+
+	// Polychat's "Sign out and continue as ..." lands here with switch_account=1.
+	const paymentSwitchDecision = () =>
+		switchAccountDecision({
+			switchParam: querystringValue(SWITCH_ACCOUNT_PARAM),
+			redirect: querystringValue('redirect'),
+			signedIn: Boolean($user),
+			referrer: document.referrer
+		});
+
+	// Sign the current account out, then reload sign-in for the same payment link.
+	const signOutAndSignInAgain = async () => {
+		const target = parsePaymentReturnUrl(querystringValue('redirect'));
+		await userSignOut();
+		localStorage.removeItem('token');
+		user.set(null);
+		window.location.replace(target ? signInAgainPath(target) : '/auth');
 	};
 
 	// Full-page navigation: the payment page is on another origin, so goto() can't reach it.
@@ -208,6 +256,17 @@
 
 	onMount(async () => {
 		withPaymentStorage((storage) => beginAuthVisit(isOAuthReturn(), storage));
+		readPaymentLink();
+		const switchDecision = paymentSwitchDecision();
+		if (switchDecision === 'sign_out') {
+			await signOutAndSignInAgain();
+			return;
+		}
+		if (switchDecision === 'confirm') {
+			switchConfirm = { current: $user?.email ?? '', wanted: paymentHint };
+			loaded = true;
+			return;
+		}
 		if ($user !== undefined) {
 			// Check if user is already logged in and coming from memtree.dev
 			const memtreeParam = querystringValue('memtree');
@@ -288,7 +347,33 @@
 			class="fixed bg-transparent min-h-screen w-full flex justify-center font-primary z-50 text-black dark:text-white"
 		>
 			<div class="w-full sm:max-w-md px-10 min-h-screen flex flex-col text-center">
-				{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
+				{#if switchConfirm}
+					<div class="my-auto pb-10 w-full dark:text-gray-100">
+						<div class="text-2xl font-medium">Switch account to subscribe</div>
+						<div class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+							You're signed in as <strong>{switchConfirm.current || 'another account'}</strong>.
+							{#if switchConfirm.wanted}
+								Sign out to sign in with <strong>{switchConfirm.wanted}</strong> and subscribe.
+							{/if}
+						</div>
+						<button
+							class="mt-5 bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
+							type="button"
+							on:click={signOutAndSignInAgain}
+						>
+							{switchConfirm.wanted
+								? `Sign out and continue as ${switchConfirm.wanted}`
+								: 'Sign out and continue'}
+						</button>
+						<button
+							class="mt-3 text-sm underline text-gray-600 dark:text-gray-400"
+							type="button"
+							on:click={() => goto('/')}
+						>
+							Stay signed in
+						</button>
+					</div>
+				{:else if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
 					<div class=" my-auto pb-10 w-full">
 						<div
 							class="flex items-center justify-center gap-3 text-xl sm:text-2xl text-center font-semibold dark:text-gray-200"
@@ -323,6 +408,13 @@
 										{$i18n.t(`Sign up to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
 									{/if}
 								</div>
+
+								{#if paymentHint && mode !== 'signup'}
+									<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+										Sign in with <strong>{paymentHint}</strong> to subscribe
+										{paymentFromCcc ? "the MemTree key you're using in ccc" : 'that account'}.
+									</div>
+								{/if}
 
 								<!--{#if $config?.onboarding ?? false}-->
 								<!--	<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">-->
@@ -433,7 +525,7 @@
 											</button>
 										{/if}
 
-										{#if $config?.features.enable_signup && !($config?.onboarding ?? false)}
+										{#if $config?.features.enable_signup && !($config?.onboarding ?? false) && !paymentReturnVisit}
 											<div class=" mt-4 text-sm text-center">
 												{mode === 'signin'
 													? $i18n.t("Don't have an account?")

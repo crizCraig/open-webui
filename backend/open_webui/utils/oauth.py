@@ -15,6 +15,7 @@ from fastapi import (
 from starlette.responses import RedirectResponse
 
 from open_webui.models.auths import Auths
+from open_webui.utils.payment_switch import login_hint_kwargs
 from open_webui.models.users import Users
 from open_webui.models.groups import Groups, GroupModel, GroupUpdateForm, GroupForm
 from open_webui.config import (
@@ -338,7 +339,9 @@ class OAuthManager:
         client = self.get_client(provider)
         if client is None:
             raise HTTPException(404)
-        return await client.authorize_redirect(request, redirect_uri)
+        # A Polychat payment sign-in names its account; let the provider preselect it.
+        hint = login_hint_kwargs(request.query_params.get("login_hint"))
+        return await client.authorize_redirect(request, redirect_uri, **hint)
 
     async def handle_callback(self, request, provider, response):
         if provider not in OAUTH_PROVIDERS:
