@@ -9,6 +9,7 @@
 """
 
 import re
+import unicodedata
 from typing import Optional
 
 from starlette.responses import Response
@@ -23,6 +24,8 @@ def clean_login_hint(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
     hint = value.strip()
+    if any(unicodedata.category(c) in ("Cc", "Cf", "Zs", "Zl", "Zp") for c in hint):
+        return None
     if len(hint) > MAX_LOGIN_HINT_LENGTH or not _SIMPLE_EMAIL.match(hint):
         return None
     return hint
@@ -31,7 +34,9 @@ def clean_login_hint(value: Optional[str]) -> Optional[str]:
 def login_hint_kwargs(value: Optional[str]) -> dict:
     """Extra authorize-redirect parameters for ``value`` (empty when it isn't usable)."""
     hint = clean_login_hint(value)
-    return {"login_hint": hint} if hint else {}
+    # select_account: a browser signed in to only the wrong Google account would otherwise
+    # come straight back as that account, and the payment page would refuse it again.
+    return {"login_hint": hint, "prompt": "select_account"} if hint else {}
 
 
 def delete_session_cookie(response: Response, domain: Optional[str]) -> None:

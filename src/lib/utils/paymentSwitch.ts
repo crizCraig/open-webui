@@ -23,6 +23,9 @@ export const CCC_SOURCE = 'ccc';
 export const MAX_EMAIL_LENGTH = 254;
 const MASK = '•••'; // •••
 const SIMPLE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Invisible/bidi format characters: the address is shown on the page.
+const FORMAT_CHARS =
+	/[\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
 
 export type SwitchDecision = 'none' | 'sign_out' | 'confirm';
 
@@ -65,7 +68,8 @@ export function paymentLinkEmail(
 		return null;
 	}
 	const email = new URL(target).searchParams.get('user_email')?.trim() ?? '';
-	return email.length <= MAX_EMAIL_LENGTH && SIMPLE_EMAIL.test(email) ? email : null;
+	const plausible = SIMPLE_EMAIL.test(email) && !FORMAT_CHARS.test(email);
+	return email.length <= MAX_EMAIL_LENGTH && plausible ? email : null;
 }
 
 /** Whether the payment link came from ccc (the copy then names "the MemTree key in ccc"). */
@@ -85,7 +89,7 @@ export function paymentAccountHint(
 	return maskEmail(paymentLinkEmail(redirect, origins));
 }
 
-/** `?login_hint=` for the OAuth login URL when the payment link names an account, else ''. */
+/** `?login_hint=` (plus select_account, added server side) for the OAuth login URL when the payment link names an account, else ''. */
 export function oauthLoginParams(
 	redirect: string | null,
 	origins: readonly string[] = PAYMENT_RETURN_ORIGINS

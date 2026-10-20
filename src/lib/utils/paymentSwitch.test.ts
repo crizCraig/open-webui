@@ -65,18 +65,21 @@ describe('switchAccountDecision', () => {
 describe('payment link account', () => {
 	test('reads user_email only from a valid payment URL', () => {
 		expect(paymentLinkEmail(LINK, PROD)).toBe('craig.quiter@gmail.com');
-		expect(paymentLinkEmail(STAGING.replace('user_id=u1', 'user_email=a%40b.co'), PROD)).toBe(
-			null
-		);
-		expect(paymentLinkEmail('https://evil.example/payment?user_email=a%40b.co', PROD)).toBe(
-			null
-		);
+		expect(paymentLinkEmail(STAGING.replace('user_id=u1', 'user_email=a%40b.co'), PROD)).toBe(null);
+		expect(paymentLinkEmail('https://evil.example/payment?user_email=a%40b.co', PROD)).toBe(null);
 		expect(paymentLinkEmail('https://app.polychat.co/payment?user_id=u1', PROD)).toBeNull();
 		expect(paymentLinkEmail(null, PROD)).toBeNull();
 	});
 
 	test('rejects implausible emails', () => {
-		for (const email of ['nope', 'a@b', 'a b@c.d', `${'a'.repeat(250)}@b.co`]) {
+		for (const email of [
+			'nope',
+			'a@b',
+			'a b@c.d',
+			`${'a'.repeat(250)}@b.co`,
+			'a@b.co\u202e',
+			'a\u200b@b.co'
+		]) {
 			const link = `https://app.polychat.co/payment?user_email=${encodeURIComponent(email)}`;
 			expect(paymentLinkEmail(link, PROD)).toBeNull();
 		}

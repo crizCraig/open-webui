@@ -11,12 +11,12 @@ from open_webui.utils.payment_switch import (
 def test_login_hint_accepts_one_plausible_email():
     assert clean_login_hint("craig.quiter@gmail.com") == "craig.quiter@gmail.com"
     assert clean_login_hint("  a@b.co ") == "a@b.co"
-    assert login_hint_kwargs("a@b.co") == {"login_hint": "a@b.co"}
+    assert login_hint_kwargs("a@b.co") == {"login_hint": "a@b.co", "prompt": "select_account"}
 
 
 def test_login_hint_rejects_everything_else():
     long = "a" * MAX_LOGIN_HINT_LENGTH + "@b.co"
-    for bad in (None, "", "nope", "a@b", "a b@c.d", "a@b.co\nx", "a@b@c.d", long):
+    for bad in (None, "", "nope", "a@b", "a b@c.d", "a@b.co\nx", "a@b@c.d", long, "a@b.co\u202e", "a\u200b@b.co"):
         assert clean_login_hint(bad) is None, bad
         assert login_hint_kwargs(bad) == {}
 
