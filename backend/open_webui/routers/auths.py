@@ -327,6 +327,8 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
                     httponly=True,  # Ensures the cookie is not accessible via JavaScript
                     samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
                     secure=WEBUI_AUTH_COOKIE_SECURE,
+                    # The scope every other sign-in and sign-out uses (one cookie, not two).
+                    domain=WEBUI_SESSION_COOKIE_DOMAIN,
                 )
 
                 user_permissions = get_permissions(

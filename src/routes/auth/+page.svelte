@@ -2,7 +2,7 @@
 	import { toast } from 'svelte-sonner';
 
 	import { onMount, getContext, tick } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	import { getBackendConfig } from '$lib/apis';
@@ -36,6 +36,8 @@
 		signInAgainPath,
 		switchAccountDecision
 	} from '$lib/utils/paymentSwitch';
+
+	import { oauthErrorMessage, withoutOAuthError } from '$lib/utils/oauthError';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
@@ -229,6 +231,17 @@
 		await setSessionUser(sessionUser, true);
 	};
 
+	// A Google sign-in that couldn't complete comes back as /auth?error=<code>: say so once.
+	// SvelteKit's replaceState drops the parameter without a navigation or a new history entry.
+	const showOAuthError = () => {
+		const message = oauthErrorMessage(window.location.search);
+		if (!message) {
+			return;
+		}
+		toast.error($i18n.t(message), { duration: 10000 });
+		replaceState(withoutOAuthError(window.location.href), $page.state);
+	};
+
 	let onboarding = false;
 
 	async function setLogoImage() {
@@ -290,6 +303,7 @@
 
 		loaded = true;
 		setLogoImage();
+		showOAuthError();
 
 		// Check if user is coming from memtree.dev and not logged in
 		const memtreeParam = querystringValue('memtree');

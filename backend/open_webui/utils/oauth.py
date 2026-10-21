@@ -16,6 +16,11 @@ from starlette.responses import RedirectResponse
 
 from open_webui.models.auths import Auths
 from open_webui.utils.payment_switch import login_hint_kwargs
+from open_webui.utils.oauth_callback import (
+    EMAIL_TAKEN,
+    callback_error_response,
+    signin_error_redirect,
+)
 from open_webui.models.users import Users
 from open_webui.models.groups import Groups, GroupModel, GroupUpdateForm, GroupForm
 from open_webui.config import (
@@ -348,16 +353,10 @@ class OAuthManager:
             raise HTTPException(404)
         client = self.get_client(provider)
         try:
-            try:
-                incoming_state = request.query_params.get("state")
-                log.debug(f"OAuth incoming state: {incoming_state}")
-                token = await client.authorize_access_token(request)
-            except Exception as e:
-                incoming_state = request.query_params.get("state")
-                log.warning(f"OAuth access token error: {e}, incoming state: {incoming_state}")
+            token = await client.authorize_access_token(request)
         except Exception as e:
-            log.warning(f"OAuth callback error: {e}")
-            raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
+            # A used or unknown state, a cancel at the provider: sign-in again, never a 500.
+            return callback_error_response(request, provider, e)
         user_data: UserInfo = token.get("userinfo")
         if not user_data or auth_manager_config.OAUTH_EMAIL_CLAIM not in user_data:
             user_data: UserInfo = await client.userinfo(token=token)
@@ -466,7 +465,10 @@ class OAuthManager:
                 # Check if an existing user with the same email already exists
                 existing_user = Users.get_user_by_email(email)
                 if existing_user:
-                    raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
+                    log.warning(
+                        f"OAuth callback ({provider}) failed: email registered to another sign-in"
+                    )
+                    return signin_error_redirect(request, EMAIL_TAKEN)
 
                 picture_claim = auth_manager_config.OAUTH_PICTURE_CLAIM
                 if picture_claim:
