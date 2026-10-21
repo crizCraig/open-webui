@@ -8,10 +8,13 @@ request, or two sign-ins racing in two tabs (the cookie session is last-write-wi
 Google sends ``access_denied`` when the user cancels. All of these used to end in an
 UnboundLocalError, an HTTP 500 page the user could only reload into again.
 
-Now a browser that already holds a valid ``token`` cookie goes to ``/`` (the first of two
-callbacks signed it in); any other gets its OAuth session and token cookies expired, host-
-only and on ``WEBUI_SESSION_COOKIE_DOMAIN``, and lands on ``/auth?error=<code>``, where the
-sign-in page says what happened and a retry starts a fresh state.
+Now a browser that already holds a valid ``token`` cookie (the first of two callbacks
+signed it in) goes to ``/auth#token=``, like a successful callback; any other gets its OAuth
+session and token cookies expired, host-only and on ``WEBUI_SESSION_COOKIE_DOMAIN``, and
+lands on ``/auth?error=<code>``, where the sign-in page says what happened and a retry
+starts a fresh state. Expiring the session also drops other tabs' pending states (their
+callbacks then land on /auth the same way): it is one cookie, and the failed state is
+unknown by now.
 """
 
 import logging
@@ -47,9 +50,14 @@ def callback_error_response(
 ) -> RedirectResponse:
     """The response to a callback whose token request failed (never a 500)."""
     reason = token_error_reason(error)
-    if signed_in_user_id(request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if signed_in_user_id(token):
         log.warning(f"OAuth callback ({provider}) failed: {reason}; already signed in")
-        return RedirectResponse(url=str(request.base_url), status_code=302)
+        # The success path's shape: the sign-in page adopts the session (localStorage)
+        # and still runs the payment and MemTree returns.
+        return RedirectResponse(
+            url=f"{request.base_url}auth#token={token}", status_code=302
+        )
     log.warning(f"OAuth callback ({provider}) failed: {reason}")
     return signin_error_redirect(request, auth_error_code(reason))
 
@@ -75,9 +83,8 @@ def auth_error_code(reason: str) -> str:
     return SIGNIN_CANCELLED if reason == "access_denied" else SIGNIN_EXPIRED
 
 
-def signed_in_user_id(request: Request) -> Optional[str]:
-    """The id of the existing user the request's ``token`` cookie names, if valid."""
-    token = request.cookies.get(SESSION_COOKIE)
+def signed_in_user_id(token: Optional[str]) -> Optional[str]:
+    """The id of the existing user a ``token`` cookie value names, if it is valid."""
     data = decode_token(token) if token else None
     user_id = data.get("id") if isinstance(data, dict) else None
     if user_id and Users.get_user_by_id(user_id):

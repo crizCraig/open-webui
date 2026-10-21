@@ -6,6 +6,7 @@ import {
 	PAYMENT_RETURN_STORAGE_KEY,
 	PRODUCTION_PAYMENT_RETURN_ORIGINS,
 	beginAuthVisit,
+	paymentLinkAfterOAuthError,
 	goToPaymentReturn,
 	parsePaymentReturnUrl,
 	paymentReturnAfterSignIn,
@@ -171,6 +172,27 @@ describe('remembered payment return', () => {
 		rememberPaymentReturn(PROD, storage, 0);
 		rememberPaymentReturn('https://evil.com/payment', storage, 0);
 		expect(storage.data.has(PAYMENT_RETURN_STORAGE_KEY)).toBe(false);
+	});
+
+	test('a failed OAuth sign-in (/auth?error=) gets its payment link back for the retry', () => {
+		const storage = memoryStorage();
+		rememberPaymentReturn(`${PROD}${QUERY}`, storage, 1000); // clicked Google on /payment
+		expect(paymentLinkAfterOAuthError(true, storage, 2000)).toBe(`${PROD}${QUERY}`);
+		beginAuthVisit(false, storage); // the error visit still forgets the stored one...
+		rememberPaymentReturn(`${PROD}${QUERY}`, storage, 3000); // ...and the retry re-remembers
+		expect(visit(storage, null, true, 4000)).toBe(`${PROD}${QUERY}`);
+	});
+
+	test('only an error visit, and only a fresh valid target, restores a payment link', () => {
+		const storage = memoryStorage();
+		rememberPaymentReturn(PROD, storage, 0);
+		expect(paymentLinkAfterOAuthError(false, storage, 1)).toBeNull();
+		expect(paymentLinkAfterOAuthError(true, storage, PAYMENT_RETURN_MAX_AGE_MS + 1)).toBeNull();
+		storage.setItem(
+			PAYMENT_RETURN_STORAGE_KEY,
+			JSON.stringify({ url: 'https://evil.com/payment', savedAt: 0 })
+		);
+		expect(paymentLinkAfterOAuthError(true, storage, 1)).toBeNull();
 	});
 
 	test('a stale remembered target is ignored', () => {

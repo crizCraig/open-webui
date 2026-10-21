@@ -10,7 +10,7 @@ to 127.0.0.1. Then, in one browser profile:
 3. reload the used callback URL: expect /auth with "Sign-in expired", no 500, and the
    stale cookies gone;
 4. click "Continue with SSO": expect to land signed in;
-5. replay that (now used) callback: expect / (already signed in), not an error.
+5. replay that (now used) callback: expect to stay signed in (/auth#token= then /).
 
 Usage (needs Playwright's Chromium; the backend runs in the open-webui-env conda env):
     python scripts/e2e_oauth_stale_cookie.py [--backend-python PATH] [--keep]
@@ -82,7 +82,7 @@ def run_browser_checks() -> int:
         results.append(check("used callback with stale cookies", lambda: expired(page, used_callback)))
         results.append(check("stale cookies cleared", lambda: no_stale_cookies(page)))
         results.append(check("retry signs in", lambda: sign_in(page)))
-        results.append(check("duplicate callback goes home", lambda: goes_home(page, callbacks[-1])))
+        results.append(check("duplicate callback stays signed in", lambda: goes_home(page, callbacks[-1])))
         browser.close()
     print("PASS" if all(results) else "FAIL")
     return 0 if all(results) else 1

@@ -133,15 +133,27 @@ def test_callback_without_parameters_is_not_a_500(client):
     assert response.headers["location"] == f"{BASE}/auth?error={SIGNIN_EXPIRED}"
 
 
-def test_duplicate_callback_of_a_signed_in_browser_goes_home(client, monkeypatch):
+def test_duplicate_callback_of_a_signed_in_browser_adopts_its_session(
+    client, monkeypatch
+):
     monkeypatch.setattr(
         oauth_callback.Users, "get_user_by_id", lambda i: SimpleNamespace(id=i)
     )
-    client.cookies.set("token", create_token(data={"id": "user-1"}))
+    token = create_token(data={"id": "user-1"})
+    client.cookies.set("token", token)
     response = client.get(f"/oauth/{PROVIDER}/callback?state=used&code=c")
     assert response.status_code == 302
-    assert response.headers["location"] == f"{BASE}/"
+    assert response.headers["location"] == f"{BASE}/auth#token={token}"
     assert not _expired(_set_cookies(response), "token")
+
+
+def test_a_pending_state_is_not_written_back_after_the_deletes(client):
+    _login_state(client)  # the session now holds a live state
+    response = client.get(f"/oauth/{PROVIDER}/callback?state=another&code=c")
+    sessions = [
+        c for c in _set_cookies(response) if c.startswith(f"{OAUTH_SESSION_COOKIE}=")
+    ]
+    assert sessions and all(_is_expiry(c) for c in sessions), sessions
 
 
 def test_token_of_a_deleted_user_is_not_signed_in(client, monkeypatch):
@@ -170,18 +182,28 @@ def test_retry_after_a_failure_gets_past_the_state_check(app, client, monkeypatc
     assert [c["code"] for c in calls] == ["fresh"]
 
 
-def test_reload_of_a_used_callback_is_handled(app, client, monkeypatch):
+def test_reload_of_a_signed_in_callback_adopts_the_session(app, client, monkeypatch):
+    """A real success, then the same callback again (reload, Back, duplicate request)."""
     oauth_client = app.state.manager.get_client(PROVIDER)
+    user = SimpleNamespace(id="u1", role="user", email="a@b.co", profile_image_url="")
+    userinfo = {"sub": "s1", "email": "a@b.co", "name": "A"}
 
     async def fake_fetch(self, **params):
-        raise TokenExchangeReached()
+        return {"access_token": "at", "token_type": "Bearer", "userinfo": userinfo}
 
     monkeypatch.setattr(type(oauth_client), "fetch_access_token", fake_fetch)
+    monkeypatch.setattr(oauth_module.Users, "get_user_by_oauth_sub", lambda sub: user)
+    monkeypatch.setattr(oauth_callback.Users, "get_user_by_id", lambda i: user)
+    monkeypatch.setattr(app.state.manager, "get_user_role", lambda u, d: "user")
     state = _login_state(client)
-    client.get(f"/oauth/{PROVIDER}/callback?state={state}&code=first")
+    first = client.get(f"/oauth/{PROVIDER}/callback?state={state}&code=first")
+    assert first.status_code == 307 and "/auth#token=" in first.headers["location"]
     again = client.get(f"/oauth/{PROVIDER}/callback?state={state}&code=first")
     assert again.status_code == 302
-    assert again.headers["location"] == f"{BASE}/auth?error={SIGNIN_EXPIRED}"
+    assert again.headers["location"].startswith(f"{BASE}/auth#token=")
+    client.cookies.clear()
+    stranger = client.get(f"/oauth/{PROVIDER}/callback?state={state}&code=first")
+    assert stranger.headers["location"] == f"{BASE}/auth?error={SIGNIN_EXPIRED}"
 
 
 def test_email_taken_redirects_with_its_own_code():

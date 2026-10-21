@@ -25,6 +25,7 @@
 		beginAuthVisit,
 		goToPaymentReturn,
 		parsePaymentReturnUrl,
+		paymentLinkAfterOAuthError,
 		paymentReturnAfterSignIn,
 		rememberPaymentReturn
 	} from '$lib/utils/paymentReturn';
@@ -60,10 +61,14 @@
 	let paymentFromCcc = false;
 	let switchConfirm = null;
 
+	// A failed Google sign-in returns to /auth?error= without its payment link (see onMount).
+	let restoredRedirect = null;
+
 	const querystringValue = (key) => {
 		const querystring = window.location.search;
 		const urlParams = new URLSearchParams(querystring);
-		return urlParams.get(key);
+		const value = urlParams.get(key);
+		return value === null && key === 'redirect' ? restoredRedirect : value;
 	};
 
 	// OAuth sign-in comes back to /auth#token=..., without the query string.
@@ -268,6 +273,10 @@
 	}
 
 	onMount(async () => {
+		const isOAuthError = oauthErrorMessage(window.location.search) !== null;
+		restoredRedirect = withPaymentStorage((storage) =>
+			paymentLinkAfterOAuthError(isOAuthError, storage)
+		);
 		withPaymentStorage((storage) => beginAuthVisit(isOAuthReturn(), storage));
 		readPaymentLink();
 		const switchDecision = paymentSwitchDecision();

@@ -116,6 +116,19 @@ export function paymentReturnAfterSignIn(
 	return viaOAuth ? parseStored(stored, now) : parsePaymentReturnUrl(redirect);
 }
 
+/**
+ * A failed OAuth sign-in comes back as `/auth?error=` without its `redirect`: the payment
+ * target that sign-in remembered (if still fresh and valid), so the page can offer the same
+ * payment sign-in again. Call before `beginAuthVisit`, which then forgets the stored one.
+ */
+export function paymentLinkAfterOAuthError(
+	isOAuthError: boolean,
+	storage: PaymentReturnStorage,
+	now: number = Date.now()
+): string | null {
+	return isOAuthError ? parseStored(storage.getItem(PAYMENT_RETURN_STORAGE_KEY), now) : null;
+}
+
 export function forgetPaymentReturn(storage: PaymentReturnStorage): void {
 	storage.removeItem(PAYMENT_RETURN_STORAGE_KEY);
 }
