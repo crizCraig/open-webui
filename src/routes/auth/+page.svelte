@@ -244,7 +244,7 @@
 			return;
 		}
 		toast.error($i18n.t(message), { duration: 10000 });
-		replaceState(withoutOAuthError(window.location.href), $page.state);
+		replaceState(withoutOAuthError(window.location.href, restoredRedirect), $page.state);
 	};
 
 	let onboarding = false;

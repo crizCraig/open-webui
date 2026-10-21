@@ -29,4 +29,14 @@ describe('withoutOAuthError', () => {
 			'/auth?redirect=x#h'
 		);
 	});
+
+	test('puts a restored payment link back so a reload keeps it', () => {
+		const link = 'https://app.polychat.co/payment?user_id=u1';
+		expect(withoutOAuthError('https://polychat.co/auth?error=oauth_expired', link)).toBe(
+			`/auth?redirect=${encodeURIComponent(link)}`
+		);
+		expect(withoutOAuthError('https://polychat.co/auth?redirect=x&error=a', link)).toBe(
+			'/auth?redirect=x'
+		);
+	});
 });

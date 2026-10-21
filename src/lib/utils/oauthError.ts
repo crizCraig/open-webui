@@ -22,9 +22,15 @@ export function oauthErrorMessage(search: string): string | null {
 		: null;
 }
 
-/** `href` without its `error` parameter (so a reload doesn't repeat the message). */
-export function withoutOAuthError(href: string): string {
+/**
+ * `href` without its `error` parameter (so a reload doesn't repeat the message), with
+ * `redirect` set to `restoredRedirect` when given (so a reload keeps a restored payment link).
+ */
+export function withoutOAuthError(href: string, restoredRedirect: string | null = null): string {
 	const url = new URL(href);
 	url.searchParams.delete(OAUTH_ERROR_PARAM);
+	if (restoredRedirect && !url.searchParams.has('redirect')) {
+		url.searchParams.set('redirect', restoredRedirect);
+	}
 	return url.pathname + url.search + url.hash;
 }
