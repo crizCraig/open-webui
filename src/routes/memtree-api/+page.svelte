@@ -19,12 +19,16 @@
 	let webUIName = 'PolyChat'; // Default fallback
 	
 	// Anonymous-count events for the install funnel (event names only; keyPageEvents.ts).
-	// Made on first use, once the config (and so the PolyChat app URL) has loaded.
-	let tracker = null;
-	const track = (event) => {
-		tracker ??= keyPageTracker({ appUrl: getPolychatAppUrl(), token: localStorage.token });
-		void tracker(event);
-	};
+	// The app URL and session are read at each send, so a late-loading config still counts.
+	const tracker = keyPageTracker({
+		get appUrl() {
+			return getPolychatAppUrl();
+		},
+		get token() {
+			return localStorage.token;
+		}
+	});
+	const track = (event) => void tracker(event);
 
 	const handleAPIKeyCreation = async () => {
 		track('page_view');

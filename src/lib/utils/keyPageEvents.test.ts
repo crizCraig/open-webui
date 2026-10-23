@@ -51,34 +51,54 @@ describe('sendKeyPageEvent', () => {
 });
 
 describe('keyPageTracker', () => {
-	test('sends in order, the page view once', async () => {
+	test('sends each event, the page view once', async () => {
 		const { calls, fetchImpl } = capture();
 		const track = keyPageTracker({ appUrl: APP, token: 't', fetchImpl });
-		track('page_view');
-		track('key_created');
-		track('page_view');
-		track('copy_key');
-		await track('copy_key');
-		expect(calls.map((c) => JSON.parse(c.init.body as string).event)).toEqual([
-			'page_view',
-			'key_created',
+		await Promise.all([
+			track('page_view'),
+			track('key_created'),
+			track('page_view'),
+			track('copy_key'),
+			track('copy_key')
+		]);
+		expect(calls.map((c) => JSON.parse(c.init.body as string).event).sort()).toEqual([
 			'copy_key',
-			'copy_key'
+			'copy_key',
+			'key_created',
+			'page_view'
+		]);
+		expect(calls[0].init.signal).toBeDefined();
+	});
+
+	test('reads the app URL at each send (the config may load after the page)', async () => {
+		const { calls, fetchImpl } = capture();
+		let url = 'https://app.polychat.co';
+		const track = keyPageTracker({
+			get appUrl() {
+				return url;
+			},
+			fetchImpl
+		});
+		await track('page_view');
+		url = 'https://staging.example.test';
+		await track('copy_key');
+		expect(calls.map((c) => new URL(c.url).host)).toEqual([
+			'app.polychat.co',
+			'staging.example.test'
 		]);
 	});
 
-	test('a failed send does not stop the ones after it', async () => {
-		let n = 0;
+	test('a stalled send does not hold back the others', async () => {
 		const sent: string[] = [];
-		const fetchImpl = (async (_url: string, init: RequestInit) => {
-			n += 1;
-			if (n === 1) throw new TypeError('offline');
-			sent.push(JSON.parse(init.body as string).event);
-			return { ok: true } as Response;
+		const fetchImpl = ((_url: string, init: RequestInit) => {
+			const event = JSON.parse(init.body as string).event;
+			if (event === 'page_view') return new Promise<Response>(() => {});
+			sent.push(event);
+			return Promise.resolve({ ok: true } as Response);
 		}) as unknown as typeof fetch;
 		const track = keyPageTracker({ appUrl: APP, fetchImpl });
-		track('page_view');
-		await track('copy_install');
+		void track('page_view');
+		expect(await track('copy_install')).toBe(true);
 		expect(sent).toEqual(['copy_install']);
 	});
 });

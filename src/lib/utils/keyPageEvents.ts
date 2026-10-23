@@ -8,6 +8,7 @@
  */
 
 export const KEY_PAGE_EVENT_PATH = '/v1/memtree/key-page-event';
+export const KEY_PAGE_EVENT_TIMEOUT_MS = 5_000;
 
 export const KEY_PAGE_EVENTS = [
 	'page_view',
@@ -43,7 +44,8 @@ export async function sendKeyPageEvent(
 				'Content-Type': 'application/json',
 				...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {})
 			},
-			body: JSON.stringify({ event })
+			body: JSON.stringify({ event }),
+			signal: timeoutSignal(KEY_PAGE_EVENT_TIMEOUT_MS)
 		});
 		return response.ok;
 	} catch {
@@ -52,18 +54,23 @@ export async function sendKeyPageEvent(
 }
 
 /**
- * A tracker that sends events one after another (so the page view lands before the clicks
- * that follow it) and at most once per event name for `once` events.
+ * A tracker: each event is its own request (the funnel counts sets, so order does not
+ * matter, and one stalled request never holds back the others); `once` events (the page
+ * view) are sent at most once.
  */
 export function keyPageTracker(opts: KeyPageEventOptions, once: KeyPageEvent[] = ['page_view']) {
-	let chain: Promise<unknown> = Promise.resolve();
 	const sent = new Set<KeyPageEvent>();
-	return (event: KeyPageEvent): Promise<unknown> => {
+	return (event: KeyPageEvent): Promise<boolean> => {
 		if (once.includes(event)) {
-			if (sent.has(event)) return chain;
+			if (sent.has(event)) return Promise.resolve(false);
 			sent.add(event);
 		}
-		chain = chain.then(() => sendKeyPageEvent(event, opts));
-		return chain;
+		return sendKeyPageEvent(event, opts);
 	};
+}
+
+function timeoutSignal(ms: number): AbortSignal | undefined {
+	return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+		? AbortSignal.timeout(ms)
+		: undefined;
 }
