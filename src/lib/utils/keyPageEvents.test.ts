@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import {
 	KEY_PAGE_EVENT_PATH,
+	KEY_PAGE_EVENT_TIMEOUT_MS,
 	keyPageTracker,
 	sendKeyPageEvent,
 	type KeyPageEvent
@@ -48,6 +49,21 @@ describe('sendKeyPageEvent', () => {
 			await sendKeyPageEvent('page_view', { appUrl: APP, fetchImpl: refused.fetchImpl })
 		).toBe(false);
 	});
+});
+
+test('a hanging send is aborted at the timeout', async () => {
+	vi.useFakeTimers();
+	try {
+		const fetchImpl = ((_url: string, init: RequestInit) =>
+			new Promise<Response>((_resolve, reject) => {
+				init.signal?.addEventListener('abort', () => reject(new DOMException('aborted')));
+			})) as unknown as typeof fetch;
+		const pending = sendKeyPageEvent('page_view', { appUrl: APP, fetchImpl });
+		vi.advanceTimersByTime(KEY_PAGE_EVENT_TIMEOUT_MS);
+		expect(await pending).toBe(false);
+	} finally {
+		vi.useRealTimers();
+	}
 });
 
 describe('keyPageTracker', () => {

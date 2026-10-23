@@ -1,5 +1,5 @@
 /**
- * Anonymous-count events from the MemTree key page (/memtree-api) for the ccc install
+ * Event names from the MemTree key page, keyed to the signed-in user, (/memtree-api) for the ccc install
  * funnel: polychat's POST /v1/memtree/key-page-event (polychat docs/install_funnel.md).
  *
  * Only an event name is sent, with the signed-in session (internal analytics only): never
@@ -34,6 +34,8 @@ export async function sendKeyPageEvent(
 	opts: KeyPageEventOptions
 ): Promise<boolean> {
 	if (!KEY_PAGE_EVENTS.includes(event)) return false;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), KEY_PAGE_EVENT_TIMEOUT_MS);
 	try {
 		const doFetch = opts.fetchImpl ?? fetch;
 		const response = await doFetch(`${opts.appUrl.replace(/\/$/, '')}${KEY_PAGE_EVENT_PATH}`, {
@@ -45,11 +47,13 @@ export async function sendKeyPageEvent(
 				...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {})
 			},
 			body: JSON.stringify({ event }),
-			signal: timeoutSignal(KEY_PAGE_EVENT_TIMEOUT_MS)
+			signal: controller.signal
 		});
 		return response.ok;
 	} catch {
 		return false;
+	} finally {
+		clearTimeout(timer);
 	}
 }
 
@@ -67,10 +71,4 @@ export function keyPageTracker(opts: KeyPageEventOptions, once: KeyPageEvent[] =
 		}
 		return sendKeyPageEvent(event, opts);
 	};
-}
-
-function timeoutSignal(ms: number): AbortSignal | undefined {
-	return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
-		? AbortSignal.timeout(ms)
-		: undefined;
 }

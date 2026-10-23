@@ -18,7 +18,7 @@
 	let copied = false;
 	let webUIName = 'PolyChat'; // Default fallback
 	
-	// Anonymous-count events for the install funnel (event names only; keyPageEvents.ts).
+	// Install funnel events: names only, keyed to the signed-in user (keyPageEvents.ts).
 	// The app URL and session are read at each send, so a late-loading config still counts.
 	const tracker = keyPageTracker({
 		get appUrl() {
