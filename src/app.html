@@ -178,6 +178,10 @@
 					return [(type || 'Error') + ': ' + REDACTED].concat(frames).join('\n');
 				}
 
+				function isError(value) {
+					return Object.prototype.toString.call(value) === '[object Error]';
+				}
+
 				function lineCount(text) {
 					return typeof text === 'string' ? text.split('\n').length : 1;
 				}
@@ -186,7 +190,10 @@
 				// causes is dropped.
 				function scrubError(error, original) {
 					if (error.causes && error.causes.length) return false;
-					var messageLines = lineCount(original && original.message);
+					// A thrown non-Error's text is all in the header; the SDK adds one frame at most.
+					var messageLines = isError(original) || original === undefined
+						? lineCount(original && original.message)
+						: Math.max(lineCount(error.stack) - 1, 1);
 					error.message = (error.type || 'Error') + ': ' + REDACTED;
 					error.stack = scrubStack(error.stack, error.type, messageLines);
 					error.handling_stack = scrubStack(error.handling_stack, 'HandlingStack', 1);

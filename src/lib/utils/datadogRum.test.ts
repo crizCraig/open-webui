@@ -282,6 +282,15 @@ describe('beforeSend', () => {
 		expect(sent?.error.stack).toBe(`Error: [redacted]\n  at real @ ${ORIGIN}/_app/a.js:1:2`);
 	});
 
+	test("a thrown string's lines are dropped; only the SDK's frame stays", () => {
+		const thrown = 'private\n  at forged @ https://private.example/secret';
+		const sent = runRumInit().send(
+			{ error: { message: thrown, stack: `Error: ${thrown}\n  at undefined @ :3:26` } },
+			{ error: thrown }
+		);
+		expect(sent?.error.stack).toBe('Error: [redacted]\n  at undefined @ :3:26');
+	});
+
 	test('an event that scrubbing throws on is not sent', () => {
 		expect(runRumInit().send({ long_task: { scripts: 5 } })).toBeNull();
 	});
