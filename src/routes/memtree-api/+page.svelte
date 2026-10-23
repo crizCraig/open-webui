@@ -4,9 +4,10 @@
 	import { goto } from '$app/navigation';
 	
 	import { createAPIKey, getAPIKey } from '$lib/apis/auths';
-	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { WEBUI_BASE_URL, getPolychatAppUrl } from '$lib/constants';
 	import { WEBUI_NAME, config, user } from '$lib/stores';
 	import { copyToClipboard } from '$lib/utils';
+	import { keyPageTracker } from '$lib/utils/keyPageEvents';
 	
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	
@@ -17,18 +18,29 @@
 	let copied = false;
 	let webUIName = 'PolyChat'; // Default fallback
 	
+	// Anonymous-count events for the install funnel (event names only; keyPageEvents.ts).
+	// Made on first use, once the config (and so the PolyChat app URL) has loaded.
+	let tracker = null;
+	const track = (event) => {
+		tracker ??= keyPageTracker({ appUrl: getPolychatAppUrl(), token: localStorage.token });
+		void tracker(event);
+	};
+
 	const handleAPIKeyCreation = async () => {
+		track('page_view');
 		try {
 			// First check if API key already exists
 			let existingKey = await getAPIKey(localStorage.token).catch(() => '');
 			
 			if (existingKey) {
 				apiKey = existingKey;
+				track('key_shown');
 			} else {
 				// Create new API key if it doesn't exist
 				const newKey = await createAPIKey(localStorage.token);
 				if (newKey) {
 					apiKey = newKey;
+					track('key_created');
 				} else {
 					throw new Error('Failed to create API key');
 				}
@@ -43,9 +55,13 @@
 	};
 	
 	const INSTALL_COMMAND = 'npm install -g claude-code-infinite';
+	const CCC_COMMAND = 'ccc';
+	const README_URL = 'https://github.com/crizCraig/claude-code-infinite#readme';
 	let installCopied = false;
+	let cccCopied = false;
 
 	const copyInstall = async () => {
+		track('copy_install');
 		await copyToClipboard(INSTALL_COMMAND);
 		installCopied = true;
 		setTimeout(() => {
@@ -53,7 +69,17 @@
 		}, 2000);
 	};
 
+	const copyCcc = async () => {
+		track('copy_ccc');
+		await copyToClipboard(CCC_COMMAND);
+		cccCopied = true;
+		setTimeout(() => {
+			cccCopied = false;
+		}, 2000);
+	};
+
 	const copyAgain = async () => {
+		track('copy_key');
 		await copyToClipboard(apiKey);
 		copied = true;
 		toast.success($i18n.t('API Key copied to clipboard!'));
@@ -226,9 +252,26 @@
 							<div class="text-sm">
 								{$i18n.t('2. In a project, run')}
 								<code class="font-mono bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5">ccc</code>
+								<button
+									class="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition"
+									on:click={copyCcc}
+								>
+									{cccCopied ? $i18n.t('Copied!') : $i18n.t('Copy')}
+								</button>
 								{$i18n.t(
 									'instead of claude. The first time, it asks for your key. Paste the one above.'
 								)}
+							</div>
+							<div class="text-xs mt-3">
+								<a
+									class="underline text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+									href={README_URL}
+									target="_blank"
+									rel="noopener noreferrer"
+									on:click={() => track('link_readme')}
+								>
+									{$i18n.t('Setup guide and help')}
+								</a>
 							</div>
 						</div>
 
