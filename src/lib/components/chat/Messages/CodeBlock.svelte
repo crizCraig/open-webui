@@ -5,7 +5,7 @@
 
 	import { getContext, onMount, tick, onDestroy } from 'svelte';
 	import { copyToClipboard } from '$lib/utils';
-	import { renderMermaidPrivately } from '$lib/utils/mermaidPrivacy';
+	import { renderMermaidPrivately } from '$lib/utils/svgPrivacy';
 
 	import 'highlight.js/styles/github-dark.min.css';
 
@@ -413,15 +413,11 @@
 	<div class="relative {className} flex flex-col rounded-lg" dir="ltr">
 		{#if lang === 'mermaid'}
 			{#if mermaidHtml}
-				<!-- The diagram's CSS names its classes: Datadog session replay records none of it,
-				     wherever a code block is shown (src/app.html). -->
-				<div data-dd-privacy="hidden">
-					<SvgPanZoom
-						className=" border border-gray-100 dark:border-gray-850 rounded-lg max-h-fit overflow-hidden"
-						svg={mermaidHtml}
-						content={_token.text}
-					/>
-				</div>
+				<SvgPanZoom
+					className=" border border-gray-100 dark:border-gray-850 rounded-lg max-h-fit overflow-hidden"
+					svg={mermaidHtml}
+					content={_token.text}
+				/>
 			{:else}
 				<pre class="mermaid">{code}</pre>
 			{/if}

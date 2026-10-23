@@ -257,7 +257,7 @@ describe('beforeSend', () => {
 			['chat/Messages/MultiResponseMessages.svelte', /<Markdown\b/],
 			['channel/Messages/Message.svelte', /<Markdown\b/],
 			['chat/ContentRenderer/FloatingButtons.svelte', /<Markdown\b/],
-			['chat/Messages/CodeBlock.svelte', /<SvgPanZoom\b/],
+			['common/SVGPanZoom.svelte', /\{@html shownSvg\}/],
 			['NotificationToast.svelte', /\{@html DOMPurify/]
 		];
 		for (const [file, content] of hiddenBefore) {

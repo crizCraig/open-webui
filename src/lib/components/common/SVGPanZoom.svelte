@@ -10,7 +10,10 @@
 	import { onMount, getContext } from 'svelte';
 	const i18n = getContext('i18n');
 
+	import { v4 as uuidv4 } from 'uuid';
+
 	import { copyToClipboard } from '$lib/utils';
+	import { withOpaqueNames } from '$lib/utils/svgPrivacy';
 
 	import DocumentDuplicate from '../icons/DocumentDuplicate.svelte';
 	import Tooltip from './Tooltip.svelte';
@@ -23,6 +26,10 @@
 	export let content = '';
 
 	let instance: PanZoom;
+
+	// Shown with opaque ids/classes (Datadog selectors); downloads keep the original.
+	const namePrefix = `svg-${uuidv4()}`;
+	$: shownSvg = withOpaqueNames(svg, namePrefix);
 
 	let sceneParentElement: HTMLElement;
 	let sceneElement: HTMLElement;
@@ -48,8 +55,14 @@
 </script>
 
 <div bind:this={sceneParentElement} class="relative {className}">
-	<div bind:this={sceneElement} class="flex h-full max-h-full justify-center items-center">
-		{@html svg}
+	<!-- Chat content (Mermaid diagrams, SVG artifacts): Datadog session replay records none of
+	     it (src/app.html). -->
+	<div
+		bind:this={sceneElement}
+		class="flex h-full max-h-full justify-center items-center"
+		data-dd-privacy="hidden"
+	>
+		{@html shownSvg}
 	</div>
 
 	{#if content}
