@@ -58,6 +58,25 @@ describe('withOpaqueNames', () => {
 		);
 	});
 
+	test('chained and event-started animations keep their references', () => {
+		const out = withOpaqueNames(
+			[
+				'<svg><rect id="box"><animate id="move" begin="0s; back.end + 1s" dur="1s"></animate>',
+				'<animate id="back" begin="move.end" end="box.click; indefinite" dur="1s"></animate>',
+				'<set begin="move.repeat(2)" to="1"></set></rect></svg>'
+			].join(''),
+			P
+		);
+		const root = parse(out);
+		const [box, move, back] = ['rect', 'animate:first-of-type', 'animate:last-of-type'].map(
+			(selector) => attr(root, selector, 'id') as string
+		);
+		expect(attr(root, 'animate:first-of-type', 'begin')).toBe(`0s; ${back}.end + 1s`);
+		expect(attr(root, 'animate:last-of-type', 'begin')).toBe(`${move}.end`);
+		expect(attr(root, 'animate:last-of-type', 'end')).toBe(`${box}.click; indefinite`);
+		expect(attr(root, 'set', 'begin')).toBe(`${move}.repeat(2)`);
+	});
+
 	test('two SVGs never share an opaque name', () => {
 		const svg = '<svg><marker id="arrowhead" class="arrow"></marker></svg>';
 		expect(withOpaqueNames(svg, 'svg-1')).not.toBe(withOpaqueNames(svg, 'svg-2'));

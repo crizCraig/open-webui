@@ -15,6 +15,9 @@ const URL_REFERENCE = /url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g;
 const CSS_NAME = /([#.])(-?[_a-zA-Z][\w-]*)/g;
 const HREF_ATTRIBUTES = ['href', 'xlink:href'];
 const ID_LIST_ATTRIBUTES = ['aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns'];
+// SMIL timing: "move.end+1s; btn.click" names elements by id before a dot.
+const TIMING_ATTRIBUTES = ['begin', 'end'];
+const TIMING_REFERENCE = /(^|;)(\s*)([A-Za-z_][\w-]*)\./g;
 
 type Renames = { ids: Map<string, string>; classes: Map<string, string> };
 type MermaidRender = (id: string, text: string, container?: Element) => Promise<{ svg: string }>;
@@ -39,7 +42,8 @@ export async function renderMermaidPrivately(
 
 // Ids and classes with no digit get opaque names, prefixed by a per-SVG unique prefix (so two
 // SVGs on a page never share one). References follow: href/xlink:href="#id", url(#id) in
-// any attribute, aria id lists, and #id / .class / url(#id) in <style>. Text is left alone.
+// any attribute, aria id lists, SMIL begin/end timing (move.end), and #id / .class /
+// url(#id) in <style>. Text is left alone.
 // Parsed as HTML, as {@html} renders it.
 export function withOpaqueNames(markup: string, prefix: string): string {
 	const root = new DOMParser().parseFromString(markup, 'text/html').body;
@@ -92,6 +96,11 @@ function renameReferences(name: string, value: string, ids: Map<string, string>)
 	}
 	if (ID_LIST_ATTRIBUTES.includes(name)) {
 		return value.replace(/\S+/g, (target) => ids.get(target) ?? target);
+	}
+	if (TIMING_ATTRIBUTES.includes(name)) {
+		return value.replace(TIMING_REFERENCE, (whole, start, space, target) =>
+			ids.has(target) ? `${start}${space}${ids.get(target)}.` : whole
+		);
 	}
 	return value.replace(URL_REFERENCE, (whole, quote, target) =>
 		ids.has(target) ? `url(${quote}#${ids.get(target)}${quote})` : whole
