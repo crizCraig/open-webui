@@ -46,7 +46,11 @@
 			<div class=" text-[13px] font-medium mb-0.5 line-clamp-1 capitalize">{title}</div>
 		{/if}
 
-		<div class=" line-clamp-2 text-xs self-center dark:text-gray-300 font-normal">
+		<!-- Datadog session replay records none of it (src/app.html). -->
+		<div
+			class=" line-clamp-2 text-xs self-center dark:text-gray-300 font-normal"
+			data-dd-privacy="hidden"
+		>
 			{@html DOMPurify.sanitize(marked(content))}
 		</div>
 	</div>

@@ -250,17 +250,27 @@ describe('beforeSend', () => {
 		expect(lt?.long_task.scripts[0].source_url).toBe(`${ORIGIN}${CHUNK}`);
 	});
 
-	test('replay never records rendered chat messages: their containers are hidden', () => {
-		for (const file of [
-			'../components/chat/Messages/ContentRenderer.svelte',
-			'../components/chat/Messages/UserMessage.svelte',
-			'../components/chat/Messages/MultiResponseMessages.svelte',
-			'../components/channel/Messages/Message.svelte'
-		]) {
-			const source = readFileSync(new URL(file, import.meta.url), 'utf8');
-			expect(source, file).toMatch(
-				/<div[^>]*data-dd-privacy="hidden"[^>]*>\s*(?:\{#if[^}]*\}\s*<Skeleton \/>\s*\{:else\}\s*)?<Markdown\b/
-			);
+	test('replay never records rendered chat content: its containers are hidden', () => {
+		const hiddenBefore: [string, RegExp][] = [
+			['chat/Messages/ContentRenderer.svelte', /<Markdown\b/],
+			['chat/Messages/UserMessage.svelte', /<Markdown\b/],
+			['chat/Messages/MultiResponseMessages.svelte', /<Markdown\b/],
+			['channel/Messages/Message.svelte', /<Markdown\b/],
+			['chat/ContentRenderer/FloatingButtons.svelte', /<Markdown\b/],
+			['chat/Messages/CodeBlock.svelte', /<SvgPanZoom\b/],
+			['NotificationToast.svelte', /\{@html DOMPurify/]
+		];
+		for (const [file, content] of hiddenBefore) {
+			const source = readFileSync(new URL(`../components/${file}`, import.meta.url), 'utf8');
+			const hidden = source.indexOf('data-dd-privacy="hidden"');
+			const rendered = source.search(content);
+			expect(hidden, file).toBeGreaterThan(-1);
+			expect(hidden, file).toBeLessThan(rendered);
+			// No closing tag between the hidden container and what it holds.
+			const between = source.slice(hidden, rendered);
+			const opened = (between.match(/<div\b/g) ?? []).length;
+			const closed = (between.match(/<\/div>/g) ?? []).length;
+			expect(closed, file).toBeLessThanOrEqual(opened);
 		}
 	});
 

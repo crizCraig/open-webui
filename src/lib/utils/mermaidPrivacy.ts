@@ -5,7 +5,6 @@
 // is replaced by an opaque one, which the selector builder skips.
 
 const HIDDEN_ATTRIBUTE = 'data-dd-privacy';
-const OPAQUE_ID_PREFIX = 'mermaid-node-';
 const ID_ATTRIBUTE = /(\sid=")([^"]*)(")/g;
 
 type MermaidRender = (id: string, text: string, container?: Element) => Promise<{ svg: string }>;
@@ -22,20 +21,21 @@ export async function renderMermaidPrivately(
 	document.body.appendChild(container);
 	try {
 		const { svg } = await render(id, code, container);
-		return withOpaqueIds(svg);
+		return withOpaqueIds(svg, id);
 	} finally {
 		container.remove();
 	}
 }
 
-// Ids with no digit get opaque names; references to them (href="#id", url(#id), and
-// #id in the SVG's own <style>) follow. Text content is left alone.
-export function withOpaqueIds(svg: string): string {
+// Ids with no digit get opaque names, prefixed by the diagram's unique render id so two
+// diagrams on a page never share one; references to them (href="#id", url(#id), and #id in
+// the SVG's own <style>) follow. Text content is left alone.
+export function withOpaqueIds(svg: string, renderId: string): string {
 	const renames = new Map<string, string>();
 	for (const match of svg.matchAll(ID_ATTRIBUTE)) {
 		const id = match[2];
 		if (id && !/[0-9]/.test(id) && !renames.has(id)) {
-			renames.set(id, `${OPAQUE_ID_PREFIX}${renames.size + 1}`);
+			renames.set(id, `${renderId}-node-${renames.size + 1}`);
 		}
 	}
 	if (renames.size === 0) return svg;

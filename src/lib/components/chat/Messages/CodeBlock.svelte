@@ -413,11 +413,15 @@
 	<div class="relative {className} flex flex-col rounded-lg" dir="ltr">
 		{#if lang === 'mermaid'}
 			{#if mermaidHtml}
-				<SvgPanZoom
-					className=" border border-gray-100 dark:border-gray-850 rounded-lg max-h-fit overflow-hidden"
-					svg={mermaidHtml}
-					content={_token.text}
-				/>
+				<!-- The diagram's CSS names its classes: Datadog session replay records none of it,
+				     wherever a code block is shown (src/app.html). -->
+				<div data-dd-privacy="hidden">
+					<SvgPanZoom
+						className=" border border-gray-100 dark:border-gray-850 rounded-lg max-h-fit overflow-hidden"
+						svg={mermaidHtml}
+						content={_token.text}
+					/>
+				</div>
 			{:else}
 				<pre class="mermaid">{code}</pre>
 			{/if}

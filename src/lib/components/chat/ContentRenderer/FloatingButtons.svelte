@@ -220,10 +220,12 @@
 	};
 </script>
 
+<!-- Ask/Explain prompt and response: Datadog session replay records none of it (src/app.html). -->
 <div
 	id={`floating-buttons-${id}`}
 	class="absolute rounded-lg mt-1 text-xs z-9999"
 	style="display: none"
+	data-dd-privacy="hidden"
 >
 	{#if responseContent === null}
 		{#if !floatingInput}
