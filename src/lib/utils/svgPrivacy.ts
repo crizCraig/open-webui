@@ -6,13 +6,17 @@
 // builder skips, inside a container session replay hides (SVGPanZoom.svelte).
 
 const HIDDEN_ATTRIBUTE = 'data-dd-privacy';
-const ID_ATTRIBUTE = /(\sid=")([^"]*)(")/g;
-const CLASS_ATTRIBUTE = /(\sclass=")([^"]*)(")/g;
-const STYLE_ELEMENT = /(<style[^>]*>)([\s\S]*?)(<\/style>)/g;
 const HAS_DIGIT = /[0-9]/;
 // An id spelled like a CSS hex colour (#fade) keeps its name: renaming it would rename colours.
 const HEX_COLOUR = /^(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+// url(#id), url('#id') or url("#id"), in attributes and CSS.
+const URL_REFERENCE = /url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g;
+// #id and .class selectors in a <style> sheet (a colour like #fff starts the same way).
+const CSS_NAME = /([#.])(-?[_a-zA-Z][\w-]*)/g;
+const HREF_ATTRIBUTES = ['href', 'xlink:href'];
+const ID_LIST_ATTRIBUTES = ['aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns'];
 
+type Renames = { ids: Map<string, string>; classes: Map<string, string> };
 type MermaidRender = (id: string, text: string, container?: Element) => Promise<{ svg: string }>;
 
 // Renders in a temporary container hidden from session replay (Mermaid otherwise puts its
@@ -34,64 +38,73 @@ export async function renderMermaidPrivately(
 }
 
 // Ids and classes with no digit get opaque names, prefixed by a per-SVG unique prefix (so two
-// SVGs on a page never share one). References follow: href="#id", url(#id), and #id / .class
-// in the SVG's own <style>. Text content is left alone.
-export function withOpaqueNames(svg: string, prefix: string): string {
-	const ids = opaqueNames(svg, ID_ATTRIBUTE, `${prefix}-id-`, (value) =>
-		HEX_COLOUR.test(value) ? [] : [value]
-	);
-	const classes = opaqueNames(svg, CLASS_ATTRIBUTE, `${prefix}-c-`, classTokens);
-	if (ids.size === 0 && classes.size === 0) return svg;
-	return renameInStyles(renameInAttributes(svg, ids, classes), ids, classes);
+// SVGs on a page never share one). References follow: href/xlink:href="#id", url(#id) in
+// any attribute, aria id lists, and #id / .class / url(#id) in <style>. Text is left alone.
+// Parsed as HTML, as {@html} renders it.
+export function withOpaqueNames(markup: string, prefix: string): string {
+	const root = new DOMParser().parseFromString(markup, 'text/html').body;
+	const renames = collectRenames(root, prefix);
+	if (renames.ids.size === 0 && renames.classes.size === 0) return markup;
+	root.querySelectorAll('*').forEach((element) => renameElement(element, renames));
+	return root.innerHTML;
 }
 
-function opaqueNames(
-	svg: string,
-	attribute: RegExp,
-	prefix: string,
-	names: (value: string) => string[]
-): Map<string, string> {
-	const renames = new Map<string, string>();
-	for (const match of svg.matchAll(attribute)) {
-		for (const name of names(match[2])) {
-			if (name && !HAS_DIGIT.test(name) && !renames.has(name)) {
-				renames.set(name, `${prefix}${renames.size + 1}`);
+function collectRenames(root: HTMLElement, prefix: string): Renames {
+	const ids = new Map<string, string>();
+	const classes = new Map<string, string>();
+	root.querySelectorAll('[id]').forEach((element) => {
+		const id = element.getAttribute('id') ?? '';
+		if (id && !HAS_DIGIT.test(id) && !HEX_COLOUR.test(id) && !ids.has(id)) {
+			ids.set(id, `${prefix}-id-${ids.size + 1}`);
+		}
+	});
+	root.querySelectorAll('[class]').forEach((element) => {
+		for (const name of classNames(element)) {
+			if (!HAS_DIGIT.test(name) && !classes.has(name)) {
+				classes.set(name, `${prefix}-c-${classes.size + 1}`);
 			}
 		}
-	}
-	return renames;
-}
-
-function classTokens(value: string): string[] {
-	return value.split(/\s+/);
-}
-
-function renameInAttributes(
-	svg: string,
-	ids: Map<string, string>,
-	classes: Map<string, string>
-): string {
-	const rename = (names: Map<string, string>, name: string) => names.get(name) ?? name;
-	return svg
-		.replace(ID_ATTRIBUTE, (_w, start, id, end) => `${start}${rename(ids, id)}${end}`)
-		.replace(CLASS_ATTRIBUTE, (_w, start, value: string, end) => {
-			const renamed = value.replace(/[^\s]+/g, (name) => rename(classes, name));
-			return `${start}${renamed}${end}`;
-		})
-		.replace(/(="#)([^"]*)(")/g, (_w, start, id, end) => `${start}${rename(ids, id)}${end}`)
-		.replace(/url\(#([^)]*)\)/g, (_w, id) => `url(#${rename(ids, id)})`);
-}
-
-function renameInStyles(
-	svg: string,
-	ids: Map<string, string>,
-	classes: Map<string, string>
-): string {
-	return svg.replace(STYLE_ELEMENT, (_whole, open, css: string, close) => {
-		const renamed = css.replace(/([#.])(-?[_a-zA-Z][\w-]*)/g, (whole, sigil, name) => {
-			const names = sigil === '#' ? ids : classes;
-			return names.has(name) ? `${sigil}${names.get(name)}` : whole;
-		});
-		return `${open}${renamed}${close}`;
 	});
+	return { ids, classes };
+}
+
+function renameElement(element: Element, renames: Renames): void {
+	const { ids, classes } = renames;
+	const id = element.getAttribute('id');
+	if (id && ids.has(id)) element.setAttribute('id', ids.get(id) as string);
+	if (element.hasAttribute('class')) {
+		const renamed = classNames(element).map((name) => classes.get(name) ?? name);
+		element.setAttribute('class', renamed.join(' '));
+	}
+	for (const attribute of Array.from(element.attributes)) {
+		const value = renameReferences(attribute.name, attribute.value, ids);
+		if (value !== attribute.value) element.setAttribute(attribute.name, value);
+	}
+	if (element.tagName.toLowerCase() === 'style' && element.textContent) {
+		element.textContent = renameInCss(element.textContent, renames);
+	}
+}
+
+function renameReferences(name: string, value: string, ids: Map<string, string>): string {
+	if (HREF_ATTRIBUTES.includes(name) && value.startsWith('#')) {
+		const target = value.slice(1);
+		return ids.has(target) ? `#${ids.get(target)}` : value;
+	}
+	if (ID_LIST_ATTRIBUTES.includes(name)) {
+		return value.replace(/\S+/g, (target) => ids.get(target) ?? target);
+	}
+	return value.replace(URL_REFERENCE, (whole, quote, target) =>
+		ids.has(target) ? `url(${quote}#${ids.get(target)}${quote})` : whole
+	);
+}
+
+function renameInCss(css: string, { ids, classes }: Renames): string {
+	return css.replace(CSS_NAME, (whole, sigil, name) => {
+		const names = sigil === '#' ? ids : classes;
+		return names.has(name) ? `${sigil}${names.get(name)}` : whole;
+	});
+}
+
+function classNames(element: Element): string[] {
+	return (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
 }
