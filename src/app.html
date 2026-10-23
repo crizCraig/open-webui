@@ -126,9 +126,9 @@
 
 		<!-- datadog -->
 		<!-- Datadog RUM never carries chat content (privacy policy): session replay masks all
-		     text and runs only while the URL has no query or fragment, action names are
-		     masked, and beforeSend drops URL queries/fragments, other sites' paths and error
-		     messages, which can quote chat text.
+		     text and runs only on URLs with no query, fragment or unknown path segment;
+		     action names are masked; beforeSend drops URL queries/fragments, unknown path
+		     segments, other sites' paths and error messages, which can quote chat text.
 		     Tested by src/lib/utils/datadogRum.test.ts. -->
 		<script>
 			(function(h,o,u,n,d) {
@@ -140,12 +140,47 @@
 				var REDACTED = '[redacted]';
 				// A frame in the SDK's own stack format, "  at <function> @ <url>:<line>:<column>".
 				var FRAME = /^  at ((?:new |async )?[^\s@()]*) @ (\S*)$/;
-				// A frame URL's query/fragment, up to its trailing :line:column.
-				var FRAME_URL_QUERY = /[?#].*?((?::\d+){0,2})$/;
+				// A frame location: its URL, then :line:column.
+				var FRAME_LOCATION = /^(.*?)((?::\d+){0,2})$/;
 				// "IMG[src="..."].onload": a long-task invoker naming an element by attribute value.
 				var INVOKER_ATTRIBUTE = /\[([\w-]+)=.*\]/;
 				var ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 				var MASKED_ACTION = 'Masked Element';
+				// Path segments of this app's own routes, API and static files. Any other segment
+				// of a same-origin path (e.g. from an image or link in a chat message) is replaced;
+				// ids and numbers stay. A word missing here only makes a path less specific.
+				var PATH_WORDS = {};
+				(
+					'_app actions add admin all api api_key api-pricing apple-touch-icon.png archive ' +
+					'archived assets audio auth auths auto banners base c cache callback changelog ' +
+					'channels chat chatgpt-alternative chats chunks code code_execution collection ' +
+					'command community_sharing completed completions config configs content create db ' +
+					'default delete details dir direct_connections doc doge.png download edit embedding ' +
+					'embeddings emoji emojis enabled entry env.js error evaluations execute expires ' +
+					'export favicon favicon-96x96.png favicon-dark.png favicon.ico favicon.png feedback ' +
+					'feedbacks file files filter folder folders fonts format functions generate ' +
+					'generations google gravatar groups h health home id image images immutable import ' +
+					'info keys knowledge ldap legal list litellm loader.js login manifest.json markdown ' +
+					'memories memtree-api moa model models new nodes notes oauth og-image.png ollama ' +
+					'openai opensearch.xml password payment pdf permissions pinned pipelines playground ' +
+					'polychat-genies.png polychat-genies2.webp polychat.co-frame.jpg pricing privacy ' +
+					'process profile prompts pull pyodide queries query refund reindex reranking reset ' +
+					'retrieval robots.txt role s search server settings share signin signout signup ' +
+					'signup-source site.webmanifest socket.io speech splash-dark.png splash.png static ' +
+					'stop suggestions tags tasks themes title toggle token tool_servers tools ' +
+					'transcriptions update updates upload uploads url urls user user-import.csv user.png ' +
+					'users utils v1 verify version version.json voices wasm watch web web-app- ' +
+					'manifest-192x192.png web-app-manifest-512x512.png web-app-manifest-512x512.svg ' +
+					'webhook workers workspace ws youtube'
+				).split(' ').forEach(function (word) {
+					PATH_WORDS[word] = true;
+				});
+				var ID_SEGMENT = /^(?:[0-9a-f]{8,}(?:-[0-9a-f]{4,})*|\d+)$/i;
+				// Vite's hashed build output, e.g. /_app/immutable/chunks/index.D7tQfajY.js or
+				// /_app/immutable/chunks/_AkZj6fF.js.
+				var BUILD_ASSET =
+					/^\/_app\/immutable\/(?:chunks|nodes|entry|assets|workers)\/(?:[\w-]+\.)*[\w-]{8}\.\w+$/;
+				var FILE_TYPE = /\.(\w{1,5})$/;
 				var rumReady = false;
 				var replayRetryPending = false;
 
@@ -156,13 +191,30 @@
 						var u = new URL(url, window.location.href);
 						if (u.protocol !== 'http:' && u.protocol !== 'https:') return u.protocol;
 						if (u.origin !== window.location.origin) return u.origin + '/';
-						return u.origin + u.pathname;
+						return u.origin + scrubPath(u.pathname);
 					} catch (e) {
 						return REDACTED;
 					}
 				}
 
-				// Keeps a stack's frames, without their URLs' queries, and drops its message: the
+				function scrubPath(path) {
+					if (BUILD_ASSET.test(path)) return path;
+					return path.split('/').map(function (segment) {
+						if (!segment || ID_SEGMENT.test(segment)) return segment;
+						if (Object.prototype.hasOwnProperty.call(PATH_WORDS, segment)) return segment;
+						var fileType = FILE_TYPE.exec(segment);
+						return REDACTED + (fileType ? '.' + fileType[1] : '');
+					}).join('/');
+				}
+
+				// A frame's URL goes through scrubUrl; its :line:column stays.
+				function scrubFrameLocation(location) {
+					var parts = FRAME_LOCATION.exec(location);
+					if (!parts || !ABSOLUTE_URL.test(parts[1])) return location;
+					return scrubUrl(parts[1]) + parts[2];
+				}
+
+				// Keeps a stack's frames, with their URLs scrubbed, and drops its message: the
 				// first messageLines lines ("Name: message") and any other line not shaped like a
 				// frame.
 				function scrubStack(stack, type, messageLines) {
@@ -171,8 +223,7 @@
 					stack.split('\n').slice(messageLines).forEach(function (line) {
 						var frame = FRAME.exec(line);
 						if (frame) {
-							var url = frame[2].replace(FRAME_URL_QUERY, '$1');
-							frames.push('  at ' + frame[1] + ' @ ' + url);
+							frames.push('  at ' + frame[1] + ' @ ' + scrubFrameLocation(frame[2]));
 						}
 					});
 					return [(type || 'Error') + ': ' + REDACTED].concat(frames).join('\n');
@@ -239,12 +290,13 @@
 
 				// Session replay records the page's full URL at each view (beforeSend can't reach it),
 				// and ?q= carries a prompt, /auth?redirect= an encoded one. So replay runs only while
-				// the URL has no query or fragment: it stops before the URL gains one and restarts
-				// once it's gone. Session sampling still applies to every start.
+				// the URL has no query or fragment and only known path segments: it stops before
+				// the URL changes to one that isn't, and restarts once it is. Session sampling still
+				// applies to every start.
 				function urlIsClean(url) {
 					try {
 						var u = new URL(url, window.location.href);
-						return !u.search && !u.hash;
+						return !u.search && !u.hash && scrubPath(u.pathname) === u.pathname;
 					} catch (e) {
 						return false;
 					}

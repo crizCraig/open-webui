@@ -6,6 +6,8 @@ import { describe, expect, test } from 'vitest';
 // these tests run that script with a stand-in DD_RUM and check what it configures and sends.
 
 const ORIGIN = 'https://polychat.co';
+const CHAT = '/c/0b5e2a8c-1f4d-4e7a-9c3b-2d6f8e1a7b90';
+const CHUNK = '/_app/immutable/chunks/index.D7tQfajY.js';
 
 // Fields Datadog's browser SDK (v6.33) lets beforeSend change; it reverts any other change.
 const MODIFIABLE_FIELDS = [
@@ -44,7 +46,7 @@ type RumInit = {
 	runTimers: () => void;
 };
 
-function runRumInit(path = '/c/abc'): RumInit {
+function runRumInit(path = CHAT): RumInit {
 	let config: RumConfig | undefined;
 	const replay = { starts: 0, stops: 0, recording: false };
 	let timers: (() => void)[] = [];
@@ -127,7 +129,7 @@ describe('session replay start', () => {
 			const rum = runRumInit(path);
 			rum.runTimers();
 			expect(rum.replay().recording).toBe(false);
-			rum.history.replaceState(null, '', '/c/new-chat');
+			rum.history.replaceState(null, '', '/c/9f8e7d6c5b4a');
 			rum.runTimers();
 			expect(rum.replay()).toEqual({ starts: 1, stops: 0, recording: true });
 			rum.runTimers();
@@ -136,38 +138,47 @@ describe('session replay start', () => {
 	});
 
 	test('stops before an in-app navigation adds a query, and restarts once it is gone', () => {
-		const rum = runRumInit('/c/abc');
+		const rum = runRumInit(CHAT);
 		rum.history.pushState(null, '', `/auth?redirect=${encodeURIComponent('/?q=secret')}`);
 		expect(rum.replay()).toEqual({ starts: 1, stops: 1, recording: false });
 		rum.runTimers();
 		expect(rum.replay().recording).toBe(false);
-		rum.history.pushState(null, '', '/c/abc');
+		rum.history.pushState(null, '', CHAT);
 		expect(rum.replay().stops).toBe(1);
 		rum.runTimers();
 		expect(rum.replay()).toEqual({ starts: 2, stops: 1, recording: true });
 	});
 
 	test('stops when Back/Forward lands on a URL with a query', () => {
-		const rum = runRumInit('/c/abc');
+		const rum = runRumInit(CHAT);
 		rum.popTo('/?q=secret');
 		expect(rum.replay().recording).toBe(false);
-		rum.popTo('/c/abc');
+		rum.popTo(CHAT);
 		rum.runTimers();
 		expect(rum.replay().recording).toBe(true);
 	});
 
 	test('one restart timer however many navigations pause it', () => {
-		const rum = runRumInit('/c/abc');
+		const rum = runRumInit(CHAT);
 		rum.history.pushState(null, '', '/?a=1');
 		rum.history.replaceState(null, '', '/?a=2');
 		rum.popTo('/#x');
-		rum.history.replaceState(null, '', '/c/abc');
+		rum.history.replaceState(null, '', CHAT);
 		rum.runTimers();
 		expect(rum.replay()).toEqual({ starts: 2, stops: 3, recording: true });
 	});
 
+	test("pauses on a path with a segment that is not one of the app's own", () => {
+		const rum = runRumInit(CHAT);
+		rum.history.pushState(null, '', '/my-private-words');
+		expect(rum.replay().recording).toBe(false);
+		rum.history.pushState(null, '', CHAT);
+		rum.runTimers();
+		expect(rum.replay().recording).toBe(true);
+	});
+
 	test('a history call with no URL keeps replay running', () => {
-		const rum = runRumInit('/c/abc');
+		const rum = runRumInit(CHAT);
 		rum.history.replaceState({ x: 1 }, '');
 		expect(rum.replay()).toEqual({ starts: 1, stops: 0, recording: true });
 	});
@@ -195,6 +206,34 @@ describe('beforeSend', () => {
 		expect(data?.resource.url).toBe('data:');
 	});
 
+	test("same-origin paths keep only the app's own words, ids and build assets", () => {
+		const { send } = runRumInit();
+		const urls: [string, string][] = [
+			['/private-chat-sentinel.png', '/[redacted].png'],
+			['/static/my%20secret.jpg?x=1', '/static/[redacted].jpg'],
+			[
+				'/api/v1/chats/0b5e2a8c-1f4d-4e7a-9c3b-2d6f8e1a7b90',
+				'/api/v1/chats/0b5e2a8c-1f4d-4e7a-9c3b-2d6f8e1a7b90'
+			],
+			['/api/v1/files/123/content', '/api/v1/files/123/content'],
+			['/c/some private words', '/c/[redacted]'],
+			['/_app/immutable/chunks/index.D7tQfajY.js', '/_app/immutable/chunks/index.D7tQfajY.js'],
+			['/_app/immutable/chunks/my-secret-file.png', '/_app/immutable/chunks/[redacted].png'],
+			['/_app/immutable/chunks/_AkZj6fF.js', '/_app/immutable/chunks/_AkZj6fF.js'],
+			[
+				'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs',
+				'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs'
+			],
+			['/toString', '/[redacted]'],
+			['/', '/']
+		];
+		for (const [path, expected] of urls) {
+			expect(send({ resource: { url: `${ORIGIN}${path}` } })?.resource.url).toBe(
+				`${ORIGIN}${expected}`
+			);
+		}
+	});
+
 	test('an empty referrer stays empty', () => {
 		const sent = runRumInit().send({ view: { url: `${ORIGIN}/`, referrer: '' } });
 		expect(sent?.view.referrer).toBe('');
@@ -210,7 +249,7 @@ describe('beforeSend', () => {
 			long_task: {
 				scripts: [
 					{ source_url: `${ORIGIN}/?q=secret`, invoker: `${ORIGIN}/?q=secret` },
-					{ source_url: `${ORIGIN}/_app/x.js`, invoker: 'DIV.onclick' },
+					{ source_url: `${ORIGIN}${CHUNK}`, invoker: 'DIV.onclick' },
 					{ source_url: '', invoker: 'Window.requestAnimationFrame' },
 					{ source_url: '', invoker: 'IMG[src="/x.png?q=secret]"].onload' },
 					{ source_url: '', invoker: 'IMG#avatar.onload' }
@@ -219,7 +258,7 @@ describe('beforeSend', () => {
 		});
 		expect(sent?.long_task.scripts).toEqual([
 			{ source_url: `${ORIGIN}/`, invoker: `${ORIGIN}/` },
-			{ source_url: `${ORIGIN}/_app/x.js`, invoker: 'DIV.onclick' },
+			{ source_url: `${ORIGIN}${CHUNK}`, invoker: 'DIV.onclick' },
 			{ source_url: '', invoker: 'Window.requestAnimationFrame' },
 			{ source_url: '', invoker: 'IMG[src].onload' },
 			{ source_url: '', invoker: 'IMG#avatar.onload' }
@@ -234,11 +273,13 @@ describe('beforeSend', () => {
 			'  at the cafe @ 10:30:45 private',
 			'fn@private.example:1:2',
 			`  at JSON.parse @ <anonymous>`,
-			`  at generateTitle @ ${ORIGIN}/_app/immutable/chunks/abc.js:1:2345`,
+			`  at generateTitle @ ${ORIGIN}${CHUNK}:1:2345`,
 			`  at <anonymous> @ ${ORIGIN}/?q=secret%20words#frag:180:12`,
 			`  at f @ ${ORIGIN}/?q=fix%20my%20code%20(secret):180:12`,
 			`  at new Chat @ ${ORIGIN}/c/1?q=secret:5:6b:3:4`,
-			`  at eval @ :291:30`
+			`  at eval @ :291:30`,
+			`  at g @ https://example.org/private-chat-sentinel.js:1:2`,
+			`  at h @ ${ORIGIN}/private-chat-sentinel.js:7:8`
 		].join('\n');
 		const sent = runRumInit().send({
 			error: {
@@ -246,7 +287,7 @@ describe('beforeSend', () => {
 				source: 'console',
 				message: `console error: Failed to parse response: "Hello my private chat"`,
 				stack,
-				handling_stack: `HandlingStack: console error\n  at log @ ${ORIGIN}/x.js?private:1:2`,
+				handling_stack: `HandlingStack: console error\n  at log @ ${ORIGIN}${CHUNK}?private:1:2`,
 				resource: { url: `${ORIGIN}/api/chat?prompt=secret` }
 			}
 		});
@@ -255,14 +296,16 @@ describe('beforeSend', () => {
 		expect(sent?.error.stack.split('\n')).toEqual([
 			'SyntaxError: [redacted]',
 			`  at JSON.parse @ <anonymous>`,
-			`  at generateTitle @ ${ORIGIN}/_app/immutable/chunks/abc.js:1:2345`,
+			`  at generateTitle @ ${ORIGIN}${CHUNK}:1:2345`,
 			`  at <anonymous> @ ${ORIGIN}/:180:12`,
 			`  at f @ ${ORIGIN}/:180:12`,
 			`  at new Chat @ ${ORIGIN}/c/1:3:4`,
-			`  at eval @ :291:30`
+			`  at eval @ :291:30`,
+			`  at g @ https://example.org/:1:2`,
+			`  at h @ ${ORIGIN}/[redacted].js:7:8`
 		]);
 		expect(sent?.error.handling_stack).toBe(
-			`HandlingStack: [redacted]\n  at log @ ${ORIGIN}/x.js:1:2`
+			`HandlingStack: [redacted]\n  at log @ ${ORIGIN}${CHUNK}:1:2`
 		);
 		expect(sent?.error.resource.url).toBe(`${ORIGIN}/api/chat`);
 	});
@@ -274,12 +317,12 @@ describe('beforeSend', () => {
 				error: {
 					type: 'Error',
 					message,
-					stack: `Error: ${message}\n  at real @ ${ORIGIN}/_app/a.js:1:2`
+					stack: `Error: ${message}\n  at real @ ${ORIGIN}${CHUNK}:1:2`
 				}
 			},
 			{ error: new Error(message) }
 		);
-		expect(sent?.error.stack).toBe(`Error: [redacted]\n  at real @ ${ORIGIN}/_app/a.js:1:2`);
+		expect(sent?.error.stack).toBe(`Error: [redacted]\n  at real @ ${ORIGIN}${CHUNK}:1:2`);
 	});
 
 	test("a thrown string's lines are dropped; only the SDK's frame stays", () => {
