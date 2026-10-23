@@ -39,8 +39,6 @@ export async function sendKeyPageEvent(
 			method: 'POST',
 			mode: 'cors',
 			credentials: 'include',
-			// A link click leaves the page: let the request finish anyway.
-			keepalive: true,
 			headers: {
 				'Content-Type': 'application/json',
 				...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {})

@@ -28,7 +28,8 @@ describe('sendKeyPageEvent', () => {
 		expect(calls[0].url).toBe(`https://app.polychat.co${KEY_PAGE_EVENT_PATH}`);
 		expect(calls[0].init.body).toBe('{"event":"copy_install"}');
 		expect(calls[0].init.credentials).toBe('include');
-		expect(calls[0].init.keepalive).toBe(true);
+		// No keepalive: browsers may refuse a keepalive request that needs a CORS preflight.
+		expect(calls[0].init.keepalive).toBeUndefined();
 		expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer jwt');
 	});
 
