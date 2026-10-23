@@ -125,28 +125,110 @@
 		</script>
 
 		<!-- datadog -->
+		<!-- Datadog RUM never carries chat content (privacy policy): session replay masks all
+		     text, action names are masked, replay waits for a URL with no query, and
+		     beforeSend drops URL queries/fragments, other sites' paths and error messages,
+		     which can quote chat text.
+		     Tested by src/lib/utils/datadogRum.test.ts. -->
 		<script>
 			(function(h,o,u,n,d) {
 			h=h[d]=h[d]||{q:[],onReady:function(c){h.q.push(c)}}
 			d=o.createElement(u);d.async=1;d.src=n
 			n=o.getElementsByTagName(u)[0];n.parentNode.insertBefore(d,n)
 			})(window,document,'script','https://www.datadoghq-browser-agent.com/us5/v6/datadog-rum.js','DD_RUM')
-			window.DD_RUM.onReady(function() {
-			window.DD_RUM.init({
-				clientToken: 'pub82027b8ee6e268eaa514929e1cd267f8',
-				applicationId: 'ccd6feb1-8ee6-406e-ad37-c54dff099b68',
-				// `site` refers to the Datadog site parameter of your organization
-				// see https://docs.datadoghq.com/getting_started/site/
-				site: 'us5.datadoghq.com',
-				service: 'polychat',
-				env: 'production',
-				// Specify a version number to identify the deployed version of your application in Datadog
-				// version: '1.0.0',
-				sessionSampleRate: 100,
-				sessionReplaySampleRate: 20,
-				defaultPrivacyLevel: 'mask-user-input',
-			});
-			})
+			;(function () {
+				var REDACTED = '[redacted]';
+				var FRAME = /^\s*at\s|@\S*:\d+:\d+\s*$/;
+				var ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
+
+				// A URL with no query or fragment; another site's URL keeps only its origin.
+				function scrubUrl(url) {
+					if (typeof url !== 'string' || !url) return url;
+					try {
+						var u = new URL(url, window.location.href);
+						if (u.protocol !== 'http:' && u.protocol !== 'https:') return u.protocol;
+						if (u.origin !== window.location.origin) return u.origin + '/';
+						return u.origin + u.pathname;
+					} catch (e) {
+						return REDACTED;
+					}
+				}
+
+				// Keeps a stack's frames and drops its message lines.
+				function scrubStack(stack, type) {
+					if (typeof stack !== 'string') return stack;
+					var frames = stack.split('\n').filter(function (line) {
+						return FRAME.test(line);
+					});
+					return [(type || 'Error') + ': ' + REDACTED].concat(frames).join('\n');
+				}
+
+				function scrubError(error) {
+					error.message = (error.type || 'Error') + ': ' + REDACTED;
+					error.stack = scrubStack(error.stack, error.type);
+					if (error.resource) error.resource.url = scrubUrl(error.resource.url);
+					(error.causes || []).forEach(function (cause) {
+						cause.message = REDACTED;
+						cause.stack = scrubStack(cause.stack, cause.type);
+					});
+				}
+
+				// Replay records the page's full URL, which beforeSend can't reach, so it starts
+				// only once the URL has no query or fragment (?q= opens a chat with a prompt; the
+				// chat page then moves to /c/<id>). Session sampling still applies.
+				function startReplayWhenUrlClean() {
+					if (!window.location.search && !window.location.hash) {
+						window.DD_RUM.startSessionReplayRecording();
+					} else {
+						setTimeout(startReplayWhenUrlClean, 1000);
+					}
+				}
+
+				// Long animation frames name their scripts by URL; an inline script's is the page's.
+				function scrubLongTask(longTask) {
+					(longTask.scripts || []).forEach(function (script) {
+						script.source_url = scrubUrl(script.source_url);
+						if (ABSOLUTE_URL.test(script.invoker)) script.invoker = scrubUrl(script.invoker);
+					});
+				}
+
+				function beforeSend(event) {
+					if (event.view) {
+						event.view.url = scrubUrl(event.view.url);
+						event.view.referrer = scrubUrl(event.view.referrer);
+						var lcp = event.view.performance && event.view.performance.lcp;
+						if (lcp) lcp.resource_url = scrubUrl(lcp.resource_url);
+					}
+					if (event.resource) event.resource.url = scrubUrl(event.resource.url);
+					if (event.error) scrubError(event.error);
+					if (event.long_task) scrubLongTask(event.long_task);
+					return true;
+				}
+
+				window.DD_RUM.onReady(function() {
+				window.DD_RUM.init({
+					clientToken: 'pub82027b8ee6e268eaa514929e1cd267f8',
+					applicationId: 'ccd6feb1-8ee6-406e-ad37-c54dff099b68',
+					// `site` refers to the Datadog site parameter of your organization
+					// see https://docs.datadoghq.com/getting_started/site/
+					site: 'us5.datadoghq.com',
+					service: 'polychat',
+					env: 'production',
+					// Specify a version number to identify the deployed version of your application in Datadog
+					// version: '1.0.0',
+					sessionSampleRate: 100,
+					sessionReplaySampleRate: 20,
+					// 'mask' replaces every text node, input and image in the replay: chat messages
+					// on screen are never recorded (layout, clicks and navigation still are).
+					defaultPrivacyLevel: 'mask',
+					// Action names come from the clicked element's text, e.g. a chat message.
+					enablePrivacyForActionName: true,
+					startSessionReplayRecordingManually: true,
+					beforeSend: beforeSend,
+				});
+				startReplayWhenUrlClean();
+				})
+			})()
 		</script>
 
 		<title>PolyChat</title>
