@@ -302,7 +302,10 @@
 									: ' w-full'}"
 							>
 								{#if message.content}
-									<Markdown id={message.id} content={message.content} />
+									<!-- Datadog session replay records none of it (src/app.html). -->
+									<div data-dd-privacy="hidden">
+										<Markdown id={message.id} content={message.content} />
+									</div>
 								{/if}
 							</div>
 						</div>

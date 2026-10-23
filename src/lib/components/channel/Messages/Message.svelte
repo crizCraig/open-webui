@@ -249,7 +249,8 @@
 						</div>
 					</div>
 				{:else}
-					<div class=" min-w-full markdown-prose">
+					<!-- Datadog session replay records none of it (src/app.html). -->
+					<div class=" min-w-full markdown-prose" data-dd-privacy="hidden">
 						<Markdown
 							id={message.id}
 							content={message.content}

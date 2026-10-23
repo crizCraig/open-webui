@@ -116,7 +116,8 @@
 	});
 </script>
 
-<div bind:this={contentContainerElement}>
+<!-- Chat content: Datadog session replay records none of it (src/app.html). -->
+<div bind:this={contentContainerElement} data-dd-privacy="hidden">
 	<Markdown
 		{id}
 		{content}

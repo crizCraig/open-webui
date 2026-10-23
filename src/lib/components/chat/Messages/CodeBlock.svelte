@@ -480,8 +480,10 @@
 				</div>
 			</div>
 
+			<!-- No class from the fence label: it's chat text, and Datadog RUM puts classes in
+			     its element selectors (src/app.html). -->
 			<div
-				class="language-{lang} rounded-t-lg -mt-8 {editorClassName
+				class="rounded-t-lg -mt-8 {editorClassName
 					? editorClassName
 					: executing || stdout || stderr || result
 						? ''

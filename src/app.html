@@ -129,6 +129,8 @@
 		     text and runs only on URLs with no query, fragment or unknown path segment;
 		     action names are masked; beforeSend drops URL queries/fragments, unknown path
 		     segments, other sites' paths and error messages, which can quote chat text.
+		     Rendered chat messages sit in data-dd-privacy="hidden" containers (ContentRenderer,
+		     UserMessage, MultiResponseMessages, channel Message), which content can't unmask.
 		     Tested by src/lib/utils/datadogRum.test.ts. -->
 		<script>
 			(function(h,o,u,n,d) {
@@ -177,28 +179,30 @@
 				});
 				var ID_SEGMENT = /^(?:[0-9a-f]{8,}(?:-[0-9a-f]{4,})*|\d+)$/i;
 				// Vite's hashed build output, e.g. /_app/immutable/chunks/index.D7tQfajY.js or
-				// /_app/immutable/chunks/_AkZj6fF.js.
+				// /_app/immutable/chunks/_AkZj6fF.js. A chat image could name a path shaped like
+				// this, so it's kept only for code the page ran (scripts, styles, fonts, frames).
 				var BUILD_ASSET =
 					/^\/_app\/immutable\/(?:chunks|nodes|entry|assets|workers)\/(?:[\w-]+\.)*[\w-]{8}\.\w+$/;
 				var FILE_TYPE = /\.(\w{1,5})$/;
+				var CODE_RESOURCE_TYPES = { js: true, css: true, font: true };
 				var rumReady = false;
 				var replayRetryPending = false;
 
 				// A URL with no query or fragment; another site's URL keeps only its origin.
-				function scrubUrl(url) {
+				function scrubUrl(url, isCode) {
 					if (typeof url !== 'string' || !url) return url;
 					try {
 						var u = new URL(url, window.location.href);
 						if (u.protocol !== 'http:' && u.protocol !== 'https:') return u.protocol;
 						if (u.origin !== window.location.origin) return u.origin + '/';
-						return u.origin + scrubPath(u.pathname);
+						return u.origin + scrubPath(u.pathname, isCode);
 					} catch (e) {
 						return REDACTED;
 					}
 				}
 
-				function scrubPath(path) {
-					if (BUILD_ASSET.test(path)) return path;
+				function scrubPath(path, isCode) {
+					if (isCode && BUILD_ASSET.test(path)) return path;
 					return path.split('/').map(function (segment) {
 						if (!segment || ID_SEGMENT.test(segment)) return segment;
 						if (Object.prototype.hasOwnProperty.call(PATH_WORDS, segment)) return segment;
@@ -211,7 +215,7 @@
 				function scrubFrameLocation(location) {
 					var parts = FRAME_LOCATION.exec(location);
 					if (!parts || !ABSOLUTE_URL.test(parts[1])) return location;
-					return scrubUrl(parts[1]) + parts[2];
+					return scrubUrl(parts[1], true) + parts[2];
 				}
 
 				// Keeps a stack's frames, with their URLs scrubbed, and drops its message: the
@@ -255,10 +259,10 @@
 				// Long animation frames name their scripts by URL; an inline script's is the page's.
 				function scrubLongTask(longTask) {
 					(longTask.scripts || []).forEach(function (script) {
-						script.source_url = scrubUrl(script.source_url);
+						script.source_url = scrubUrl(script.source_url, true);
 						if (typeof script.invoker !== 'string') return;
 						script.invoker = ABSOLUTE_URL.test(script.invoker)
-							? scrubUrl(script.invoker)
+							? scrubUrl(script.invoker, true)
 							: script.invoker.replace(INVOKER_ATTRIBUTE, '[$1]');
 					});
 				}
@@ -281,7 +285,10 @@
 						var lcp = event.view.performance && event.view.performance.lcp;
 						if (lcp) lcp.resource_url = scrubUrl(lcp.resource_url);
 					}
-					if (event.resource) event.resource.url = scrubUrl(event.resource.url);
+					if (event.resource) {
+						var isCode = CODE_RESOURCE_TYPES.hasOwnProperty(event.resource.type);
+						event.resource.url = scrubUrl(event.resource.url, isCode);
+					}
 					if (event.action && event.action.target) event.action.target.name = MASKED_ACTION;
 					if (event.long_task) scrubLongTask(event.long_task);
 					if (event.error) return scrubError(event.error, originalError);

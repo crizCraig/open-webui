@@ -206,7 +206,7 @@ describe('beforeSend', () => {
 		expect(data?.resource.url).toBe('data:');
 	});
 
-	test("same-origin paths keep only the app's own words, ids and build assets", () => {
+	test("same-origin paths keep only the app's own words and ids", () => {
 		const { send } = runRumInit();
 		const urls: [string, string][] = [
 			['/private-chat-sentinel.png', '/[redacted].png'],
@@ -217,19 +217,48 @@ describe('beforeSend', () => {
 			],
 			['/api/v1/files/123/content', '/api/v1/files/123/content'],
 			['/c/some private words', '/c/[redacted]'],
-			['/_app/immutable/chunks/index.D7tQfajY.js', '/_app/immutable/chunks/index.D7tQfajY.js'],
+			['/_app/immutable/chunks/index.D7tQfajY.js', '/_app/immutable/chunks/[redacted].js'],
 			['/_app/immutable/chunks/my-secret-file.png', '/_app/immutable/chunks/[redacted].png'],
-			['/_app/immutable/chunks/_AkZj6fF.js', '/_app/immutable/chunks/_AkZj6fF.js'],
-			[
-				'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs',
-				'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs'
-			],
 			['/toString', '/[redacted]'],
 			['/', '/']
 		];
 		for (const [path, expected] of urls) {
 			expect(send({ resource: { url: `${ORIGIN}${path}` } })?.resource.url).toBe(
 				`${ORIGIN}${expected}`
+			);
+		}
+	});
+
+	test('build files keep their names only when the page ran them as code', () => {
+		const { send } = runRumInit();
+		const sendResource = (path: string, type: string) =>
+			send({ resource: { url: `${ORIGIN}${path}`, type } })?.resource.url;
+		for (const path of [
+			CHUNK,
+			'/_app/immutable/chunks/_AkZj6fF.js',
+			'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs'
+		]) {
+			expect(sendResource(path, 'js')).toBe(`${ORIGIN}${path}`);
+		}
+		expect(sendResource('/_app/immutable/assets/_page.CqC1x3Ab.css', 'css')).toBe(
+			`${ORIGIN}/_app/immutable/assets/_page.CqC1x3Ab.css`
+		);
+		expect(sendResource('/_app/immutable/assets/PRIVATECHAT.D7tQfajY.png', 'image')).toBe(
+			`${ORIGIN}/_app/immutable/assets/[redacted].png`
+		);
+		expect(sendResource(CHUNK, 'fetch')).toBe(`${ORIGIN}/_app/immutable/chunks/[redacted].js`);
+	});
+
+	test('replay never records rendered chat messages: their containers are hidden', () => {
+		for (const file of [
+			'../components/chat/Messages/ContentRenderer.svelte',
+			'../components/chat/Messages/UserMessage.svelte',
+			'../components/chat/Messages/MultiResponseMessages.svelte',
+			'../components/channel/Messages/Message.svelte'
+		]) {
+			const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+			expect(source, file).toMatch(
+				/<div[^>]*data-dd-privacy="hidden"[^>]*>\s*(?:\{#if[^}]*\}\s*<Skeleton \/>\s*\{:else\}\s*)?<Markdown\b/
 			);
 		}
 	});

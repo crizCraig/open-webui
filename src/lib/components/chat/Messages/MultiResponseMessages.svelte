@@ -305,7 +305,8 @@
 									{/if}
 								</Name>
 
-								<div class="mt-1 markdown-prose w-full min-w-full">
+								<!-- Datadog session replay records none of it (src/app.html). -->
+								<div class="mt-1 markdown-prose w-full min-w-full" data-dd-privacy="hidden">
 									{#if (message?.content ?? '') === ''}
 										<Skeleton />
 									{:else}
