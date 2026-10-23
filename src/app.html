@@ -126,9 +126,9 @@
 
 		<!-- datadog -->
 		<!-- Datadog RUM never carries chat content (privacy policy): session replay masks all
-		     text, action names are masked, replay waits for a URL with no query, and
-		     beforeSend drops URL queries/fragments, other sites' paths and error messages,
-		     which can quote chat text.
+		     text and runs only while the URL has no query or fragment, action names are
+		     masked, and beforeSend drops URL queries/fragments, other sites' paths and error
+		     messages, which can quote chat text.
 		     Tested by src/lib/utils/datadogRum.test.ts. -->
 		<script>
 			(function(h,o,u,n,d) {
@@ -138,8 +138,13 @@
 			})(window,document,'script','https://www.datadoghq-browser-agent.com/us5/v6/datadog-rum.js','DD_RUM')
 			;(function () {
 				var REDACTED = '[redacted]';
-				var FRAME = /^\s*at\s|@\S*:\d+:\d+\s*$/;
+				// A stack frame line: V8/Datadog "at fn (url:1:2)" / "at fn @ url:1:2", Firefox "fn@url:1:2".
+				var FRAME = /^\s*at\s.*(:\d+:\d+\)?|\((<anonymous>|native)\)|@ <anonymous>)\s*$|@\S*:\d+:\d+\s*$/;
+				var FRAME_URL_QUERY = /(\bhttps?:\/\/[^\s?#()]*)[?#][^\s()]*?(:\d+:\d+)/g;
 				var ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
+				var MASKED_ACTION = 'Masked Element';
+				var rumReady = false;
+				var replayRetryPending = false;
 
 				// A URL with no query or fragment; another site's URL keeps only its origin.
 				function scrubUrl(url) {
@@ -154,34 +159,26 @@
 					}
 				}
 
-				// Keeps a stack's frames and drops its message lines.
+				// Keeps a stack's frames, without their URLs' queries, and drops its message lines.
 				function scrubStack(stack, type) {
 					if (typeof stack !== 'string') return stack;
 					var frames = stack.split('\n').filter(function (line) {
 						return FRAME.test(line);
+					}).map(function (line) {
+						return line.replace(FRAME_URL_QUERY, '$1$2');
 					});
 					return [(type || 'Error') + ': ' + REDACTED].concat(frames).join('\n');
 				}
 
+				// error.causes can't be changed in beforeSend (Datadog reverts it), so an error with
+				// causes is dropped.
 				function scrubError(error) {
+					if (error.causes && error.causes.length) return false;
 					error.message = (error.type || 'Error') + ': ' + REDACTED;
 					error.stack = scrubStack(error.stack, error.type);
+					error.handling_stack = scrubStack(error.handling_stack, 'HandlingStack');
 					if (error.resource) error.resource.url = scrubUrl(error.resource.url);
-					(error.causes || []).forEach(function (cause) {
-						cause.message = REDACTED;
-						cause.stack = scrubStack(cause.stack, cause.type);
-					});
-				}
-
-				// Replay records the page's full URL, which beforeSend can't reach, so it starts
-				// only once the URL has no query or fragment (?q= opens a chat with a prompt; the
-				// chat page then moves to /c/<id>). Session sampling still applies.
-				function startReplayWhenUrlClean() {
-					if (!window.location.search && !window.location.hash) {
-						window.DD_RUM.startSessionReplayRecording();
-					} else {
-						setTimeout(startReplayWhenUrlClean, 1000);
-					}
+					return true;
 				}
 
 				// Long animation frames name their scripts by URL; an inline script's is the page's.
@@ -200,10 +197,61 @@
 						if (lcp) lcp.resource_url = scrubUrl(lcp.resource_url);
 					}
 					if (event.resource) event.resource.url = scrubUrl(event.resource.url);
-					if (event.error) scrubError(event.error);
+					if (event.action && event.action.target) event.action.target.name = MASKED_ACTION;
 					if (event.long_task) scrubLongTask(event.long_task);
+					if (event.error) return scrubError(event.error);
 					return true;
 				}
+
+				// Session replay records the page's full URL at each view (beforeSend can't reach it),
+				// and ?q= carries a prompt, /auth?redirect= an encoded one. So replay runs only while
+				// the URL has no query or fragment: it stops before the URL gains one and restarts
+				// once it's gone. Session sampling still applies to every start.
+				function urlIsClean(url) {
+					try {
+						var u = new URL(url, window.location.href);
+						return !u.search && !u.hash;
+					} catch (e) {
+						return false;
+					}
+				}
+
+				function startReplayWhenUrlClean() {
+					replayRetryPending = false;
+					if (urlIsClean(window.location.href)) {
+						window.DD_RUM.startSessionReplayRecording();
+					} else {
+						replayRetryPending = true;
+						setTimeout(startReplayWhenUrlClean, 1000);
+					}
+				}
+
+				function pauseReplayFor(url) {
+					if (!rumReady || urlIsClean(url)) return;
+					window.DD_RUM.stopSessionReplayRecording();
+					if (!replayRetryPending) {
+						replayRetryPending = true;
+						setTimeout(startReplayWhenUrlClean, 1000);
+					}
+				}
+
+				// Wrapped after DD_RUM.init, so these run before Datadog's own history hooks.
+				function pauseReplayOnHistoryChange() {
+					['pushState', 'replaceState'].forEach(function (name) {
+						var original = window.history[name];
+						window.history[name] = function (state, title, url) {
+							if (url !== undefined && url !== null) pauseReplayFor(String(url));
+							return original.apply(this, arguments);
+						};
+					});
+				}
+
+				// Registered before Datadog's listeners (added at init), so these run first.
+				['popstate', 'hashchange'].forEach(function (type) {
+					window.addEventListener(type, function () {
+						pauseReplayFor(window.location.href);
+					});
+				});
 
 				window.DD_RUM.onReady(function() {
 				window.DD_RUM.init({
@@ -226,6 +274,8 @@
 					startSessionReplayRecordingManually: true,
 					beforeSend: beforeSend,
 				});
+				rumReady = true;
+				pauseReplayOnHistoryChange();
 				startReplayWhenUrlClean();
 				})
 			})()
