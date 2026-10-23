@@ -229,24 +229,25 @@ describe('beforeSend', () => {
 		}
 	});
 
-	test('build files keep their names only when the page ran them as code', () => {
+	test('resources never keep build file names: a chat image can request any path', () => {
 		const { send } = runRumInit();
-		const sendResource = (path: string, type: string) =>
-			send({ resource: { url: `${ORIGIN}${path}`, type } })?.resource.url;
-		for (const path of [
-			CHUNK,
-			'/_app/immutable/chunks/_AkZj6fF.js',
-			'/_app/immutable/assets/ort.bundle.min.D2-GKZ-g.mjs'
+		for (const [path, type] of [
+			[CHUNK, 'js'],
+			['/_app/immutable/assets/PRIVATECHAT.D7tQfajY.js', 'js'],
+			['/_app/immutable/assets/PRIVATECHAT.D7tQfajY.css', 'css'],
+			['/_app/immutable/assets/PRIVATECHAT.D7tQfajY.png', 'image']
 		]) {
-			expect(sendResource(path, 'js')).toBe(`${ORIGIN}${path}`);
+			const url = send({ resource: { url: `${ORIGIN}${path}`, type } })?.resource.url;
+			expect(url).toMatch(
+				/^https:\/\/polychat\.co\/_app\/immutable\/(chunks|assets)\/\[redacted\]\.\w+$/
+			);
 		}
-		expect(sendResource('/_app/immutable/assets/_page.CqC1x3Ab.css', 'css')).toBe(
-			`${ORIGIN}/_app/immutable/assets/_page.CqC1x3Ab.css`
-		);
-		expect(sendResource('/_app/immutable/assets/PRIVATECHAT.D7tQfajY.png', 'image')).toBe(
-			`${ORIGIN}/_app/immutable/assets/[redacted].png`
-		);
-		expect(sendResource(CHUNK, 'fetch')).toBe(`${ORIGIN}/_app/immutable/chunks/[redacted].js`);
+	});
+
+	test('stack frames and long-task scripts keep build file names', () => {
+		const { send } = runRumInit();
+		const lt = send({ long_task: { scripts: [{ source_url: `${ORIGIN}${CHUNK}`, invoker: '' }] } });
+		expect(lt?.long_task.scripts[0].source_url).toBe(`${ORIGIN}${CHUNK}`);
 	});
 
 	test('replay never records rendered chat messages: their containers are hidden', () => {

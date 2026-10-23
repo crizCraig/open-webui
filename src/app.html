@@ -179,12 +179,12 @@
 				});
 				var ID_SEGMENT = /^(?:[0-9a-f]{8,}(?:-[0-9a-f]{4,})*|\d+)$/i;
 				// Vite's hashed build output, e.g. /_app/immutable/chunks/index.D7tQfajY.js or
-				// /_app/immutable/chunks/_AkZj6fF.js. A chat image could name a path shaped like
-				// this, so it's kept only for code the page ran (scripts, styles, fonts, frames).
+				// /_app/immutable/chunks/_AkZj6fF.js. A chat image could request a path shaped like
+				// this (Datadog types resources by extension), so build file names are kept only in
+				// stack frames and long-task scripts: code the page actually ran.
 				var BUILD_ASSET =
 					/^\/_app\/immutable\/(?:chunks|nodes|entry|assets|workers)\/(?:[\w-]+\.)*[\w-]{8}\.\w+$/;
 				var FILE_TYPE = /\.(\w{1,5})$/;
-				var CODE_RESOURCE_TYPES = { js: true, css: true, font: true };
 				var rumReady = false;
 				var replayRetryPending = false;
 
@@ -285,10 +285,7 @@
 						var lcp = event.view.performance && event.view.performance.lcp;
 						if (lcp) lcp.resource_url = scrubUrl(lcp.resource_url);
 					}
-					if (event.resource) {
-						var isCode = CODE_RESOURCE_TYPES.hasOwnProperty(event.resource.type);
-						event.resource.url = scrubUrl(event.resource.url, isCode);
-					}
+					if (event.resource) event.resource.url = scrubUrl(event.resource.url);
 					if (event.action && event.action.target) event.action.target.name = MASKED_ACTION;
 					if (event.long_task) scrubLongTask(event.long_task);
 					if (event.error) return scrubError(event.error, originalError);

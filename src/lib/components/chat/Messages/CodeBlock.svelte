@@ -5,6 +5,7 @@
 
 	import { getContext, onMount, tick, onDestroy } from 'svelte';
 	import { copyToClipboard } from '$lib/utils';
+	import { renderMermaidPrivately } from '$lib/utils/mermaidPrivacy';
 
 	import 'highlight.js/styles/github-dark.min.css';
 
@@ -319,8 +320,11 @@
 	const drawMermaidDiagram = async () => {
 		try {
 			if (await mermaid.parse(code)) {
-				const { svg } = await mermaid.render(`mermaid-${uuidv4()}`, code);
-				mermaidHtml = svg;
+				mermaidHtml = await renderMermaidPrivately(
+					mermaid.render.bind(mermaid),
+					`mermaid-${uuidv4()}`,
+					code
+				);
 			}
 		} catch (error) {
 			console.log('Error:', error);
