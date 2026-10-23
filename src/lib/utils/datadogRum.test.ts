@@ -28,7 +28,8 @@ const MODIFIABLE_FIELDS = [
 ];
 
 type RumEvent = Record<string, any>;
-type RumConfig = Record<string, unknown> & { beforeSend: (event: RumEvent) => boolean };
+type BeforeSend = (event: RumEvent, context?: { error?: unknown }) => boolean;
+type RumConfig = Record<string, unknown> & { beforeSend: BeforeSend };
 type History = Record<'pushState' | 'replaceState', (s: unknown, t: string, url?: string) => void>;
 
 type RumInit = {
@@ -36,7 +37,7 @@ type RumInit = {
 	loaderSrc: string;
 	history: History;
 	// What reaches Datadog for an event: null when beforeSend drops it.
-	send: (event: RumEvent) => RumEvent | null;
+	send: (event: RumEvent, context?: { error?: unknown }) => RumEvent | null;
 	// Sets the URL as a browser Back/Forward would, firing popstate.
 	popTo: (url: string) => void;
 	replay: () => { starts: number; stops: number; recording: boolean };
@@ -87,7 +88,7 @@ function runRumInit(path = '/c/abc'): RumInit {
 		config,
 		loaderSrc: loader.src ?? '',
 		history: window.history,
-		send: (event) => sendThroughBeforeSend(beforeSend, event),
+		send: (event, context) => sendThroughBeforeSend(beforeSend, event, context),
 		popTo: (url) => {
 			setUrl(url);
 			(listeners.popstate ?? []).forEach((listener) => listener());
@@ -210,26 +211,34 @@ describe('beforeSend', () => {
 				scripts: [
 					{ source_url: `${ORIGIN}/?q=secret`, invoker: `${ORIGIN}/?q=secret` },
 					{ source_url: `${ORIGIN}/_app/x.js`, invoker: 'DIV.onclick' },
-					{ source_url: '', invoker: 'Window.requestAnimationFrame' }
+					{ source_url: '', invoker: 'Window.requestAnimationFrame' },
+					{ source_url: '', invoker: 'IMG[src="/x.png?q=secret]"].onload' },
+					{ source_url: '', invoker: 'IMG#avatar.onload' }
 				]
 			}
 		});
 		expect(sent?.long_task.scripts).toEqual([
 			{ source_url: `${ORIGIN}/`, invoker: `${ORIGIN}/` },
 			{ source_url: `${ORIGIN}/_app/x.js`, invoker: 'DIV.onclick' },
-			{ source_url: '', invoker: 'Window.requestAnimationFrame' }
+			{ source_url: '', invoker: 'Window.requestAnimationFrame' },
+			{ source_url: '', invoker: 'IMG[src].onload' },
+			{ source_url: '', invoker: 'IMG#avatar.onload' }
 		]);
 	});
 
 	test('error messages, which can quote chat text, are dropped; stack frames stay', () => {
+		// The SDK's own stack format: "Name: message" then "  at <function> @ <url>" frames.
 		const stack = [
 			`SyntaxError: Unexpected token 'H', "Hello my private chat" is not valid JSON`,
 			'at 5pm we talked about private things',
-			`    at JSON.parse (<anonymous>)`,
-			`    at generateTitle (${ORIGIN}/_app/immutable/chunks/abc.js:1:2345)`,
+			'  at the cafe @ 10:30:45 private',
+			'fn@private.example:1:2',
+			`  at JSON.parse @ <anonymous>`,
+			`  at generateTitle @ ${ORIGIN}/_app/immutable/chunks/abc.js:1:2345`,
 			`  at <anonymous> @ ${ORIGIN}/?q=secret%20words#frag:180:12`,
-			`    at eval (eval at run (${ORIGIN}/c/1?q=secret:3:4), <anonymous>:2:53)`,
-			`fn@${ORIGIN}/_app/immutable/chunks/abc.js:3:4`
+			`  at f @ ${ORIGIN}/?q=fix%20my%20code%20(secret):180:12`,
+			`  at new Chat @ ${ORIGIN}/c/1?q=secret:5:6b:3:4`,
+			`  at eval @ :291:30`
 		].join('\n');
 		const sent = runRumInit().send({
 			error: {
@@ -245,16 +254,36 @@ describe('beforeSend', () => {
 		expect(sent?.error.message).toBe('SyntaxError: [redacted]');
 		expect(sent?.error.stack.split('\n')).toEqual([
 			'SyntaxError: [redacted]',
-			`    at JSON.parse (<anonymous>)`,
-			`    at generateTitle (${ORIGIN}/_app/immutable/chunks/abc.js:1:2345)`,
+			`  at JSON.parse @ <anonymous>`,
+			`  at generateTitle @ ${ORIGIN}/_app/immutable/chunks/abc.js:1:2345`,
 			`  at <anonymous> @ ${ORIGIN}/:180:12`,
-			`    at eval (eval at run (${ORIGIN}/c/1:3:4), <anonymous>:2:53)`,
-			`fn@${ORIGIN}/_app/immutable/chunks/abc.js:3:4`
+			`  at f @ ${ORIGIN}/:180:12`,
+			`  at new Chat @ ${ORIGIN}/c/1:3:4`,
+			`  at eval @ :291:30`
 		]);
 		expect(sent?.error.handling_stack).toBe(
 			`HandlingStack: [redacted]\n  at log @ ${ORIGIN}/x.js:1:2`
 		);
 		expect(sent?.error.resource.url).toBe(`${ORIGIN}/api/chat`);
+	});
+
+	test("a multi-line message's lines are dropped even when shaped like frames", () => {
+		const message = 'first line\n  at forged @ https://private.example/secret';
+		const sent = runRumInit().send(
+			{
+				error: {
+					type: 'Error',
+					message,
+					stack: `Error: ${message}\n  at real @ ${ORIGIN}/_app/a.js:1:2`
+				}
+			},
+			{ error: new Error(message) }
+		);
+		expect(sent?.error.stack).toBe(`Error: [redacted]\n  at real @ ${ORIGIN}/_app/a.js:1:2`);
+	});
+
+	test('an event that scrubbing throws on is not sent', () => {
+		expect(runRumInit().send({ long_task: { scripts: 5 } })).toBeNull();
 	});
 
 	test('an error with causes, which beforeSend cannot change, is not sent', () => {
@@ -284,11 +313,12 @@ function rumInitScript(): string {
 
 // Like the SDK: beforeSend gets a copy, and only MODIFIABLE_FIELDS are copied back.
 function sendThroughBeforeSend(
-	beforeSend: (event: RumEvent) => boolean,
-	event: RumEvent
+	beforeSend: BeforeSend,
+	event: RumEvent,
+	context: { error?: unknown } = {}
 ): RumEvent | null {
 	const edited = structuredClone(event);
-	if (beforeSend(edited) === false) return null;
+	if (beforeSend(edited, context) === false) return null;
 	const sent = structuredClone(event);
 	for (const field of MODIFIABLE_FIELDS) copyField(edited, sent, field.split('.'));
 	return sent;

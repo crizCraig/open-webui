@@ -138,9 +138,12 @@
 			})(window,document,'script','https://www.datadoghq-browser-agent.com/us5/v6/datadog-rum.js','DD_RUM')
 			;(function () {
 				var REDACTED = '[redacted]';
-				// A stack frame line: V8/Datadog "at fn (url:1:2)" / "at fn @ url:1:2", Firefox "fn@url:1:2".
-				var FRAME = /^\s*at\s.*(:\d+:\d+\)?|\((<anonymous>|native)\)|@ <anonymous>)\s*$|@\S*:\d+:\d+\s*$/;
-				var FRAME_URL_QUERY = /(\bhttps?:\/\/[^\s?#()]*)[?#][^\s()]*?(:\d+:\d+)/g;
+				// A frame in the SDK's own stack format, "  at <function> @ <url>:<line>:<column>".
+				var FRAME = /^  at ((?:new |async )?[^\s@()]*) @ (\S*)$/;
+				// A frame URL's query/fragment, up to its trailing :line:column.
+				var FRAME_URL_QUERY = /[?#].*?((?::\d+){0,2})$/;
+				// "IMG[src="..."].onload": a long-task invoker naming an element by attribute value.
+				var INVOKER_ATTRIBUTE = /\[([\w-]+)=.*\]/;
 				var ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 				var MASKED_ACTION = 'Masked Element';
 				var rumReady = false;
@@ -159,24 +162,34 @@
 					}
 				}
 
-				// Keeps a stack's frames, without their URLs' queries, and drops its message lines.
-				function scrubStack(stack, type) {
+				// Keeps a stack's frames, without their URLs' queries, and drops its message: the
+				// first messageLines lines ("Name: message") and any other line not shaped like a
+				// frame.
+				function scrubStack(stack, type, messageLines) {
 					if (typeof stack !== 'string') return stack;
-					var frames = stack.split('\n').filter(function (line) {
-						return FRAME.test(line);
-					}).map(function (line) {
-						return line.replace(FRAME_URL_QUERY, '$1$2');
+					var frames = [];
+					stack.split('\n').slice(messageLines).forEach(function (line) {
+						var frame = FRAME.exec(line);
+						if (frame) {
+							var url = frame[2].replace(FRAME_URL_QUERY, '$1');
+							frames.push('  at ' + frame[1] + ' @ ' + url);
+						}
 					});
 					return [(type || 'Error') + ': ' + REDACTED].concat(frames).join('\n');
 				}
 
+				function lineCount(text) {
+					return typeof text === 'string' ? text.split('\n').length : 1;
+				}
+
 				// error.causes can't be changed in beforeSend (Datadog reverts it), so an error with
 				// causes is dropped.
-				function scrubError(error) {
+				function scrubError(error, original) {
 					if (error.causes && error.causes.length) return false;
+					var messageLines = lineCount(original && original.message);
 					error.message = (error.type || 'Error') + ': ' + REDACTED;
-					error.stack = scrubStack(error.stack, error.type);
-					error.handling_stack = scrubStack(error.handling_stack, 'HandlingStack');
+					error.stack = scrubStack(error.stack, error.type, messageLines);
+					error.handling_stack = scrubStack(error.handling_stack, 'HandlingStack', 1);
 					if (error.resource) error.resource.url = scrubUrl(error.resource.url);
 					return true;
 				}
@@ -185,11 +198,25 @@
 				function scrubLongTask(longTask) {
 					(longTask.scripts || []).forEach(function (script) {
 						script.source_url = scrubUrl(script.source_url);
-						if (ABSOLUTE_URL.test(script.invoker)) script.invoker = scrubUrl(script.invoker);
+						if (typeof script.invoker !== 'string') return;
+						script.invoker = ABSOLUTE_URL.test(script.invoker)
+							? scrubUrl(script.invoker)
+							: script.invoker.replace(INVOKER_ATTRIBUTE, '[$1]');
 					});
 				}
 
-				function beforeSend(event) {
+				// context.error is the original error, whose message sets how many stack lines
+				// are message. If scrubbing throws, the SDK would send the half-scrubbed event, so
+				// it's dropped (a view event can't be dropped; its URLs are scrubbed first).
+				function beforeSend(event, context) {
+					try {
+						return scrubEvent(event, context && context.error);
+					} catch (e) {
+						return false;
+					}
+				}
+
+				function scrubEvent(event, originalError) {
 					if (event.view) {
 						event.view.url = scrubUrl(event.view.url);
 						event.view.referrer = scrubUrl(event.view.referrer);
@@ -199,7 +226,7 @@
 					if (event.resource) event.resource.url = scrubUrl(event.resource.url);
 					if (event.action && event.action.target) event.action.target.name = MASKED_ACTION;
 					if (event.long_task) scrubLongTask(event.long_task);
-					if (event.error) return scrubError(event.error);
+					if (event.error) return scrubError(event.error, originalError);
 					return true;
 				}
 
