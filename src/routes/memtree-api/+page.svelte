@@ -37,8 +37,6 @@
 			// First check if API key already exists
 			let existingKey = await getAPIKey(localStorage.token).catch(() => '');
 			
-			// The user has found the key page: the new-chat hint has done its job.
-			markMemtreeKeyHintDone(localStorage);
 			if (existingKey) {
 				apiKey = existingKey;
 				track('key_shown');
@@ -53,6 +51,8 @@
 				}
 			}
 			
+			// The user has their key: the new-chat hint has done its job.
+			markMemtreeKeyHintDone(localStorage);
 		} catch (error) {
 			console.error('API Key creation error:', error);
 			toast.error($i18n.t('Failed to create API key. Please try again.'));
@@ -288,13 +288,14 @@
 							)}
 						</div>
 
-						<!-- Maybe enable this for a non memtree use-case -->
-						<!-- <button
+						<!-- The page is also reached from the user menu and the new-chat hint, where an
+						installed app (no browser Back) needs a way back -->
+						<a
+							href="/"
 							class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition underline"
-							on:click={() => goto('/')}
 						>
 							{$i18n.t('Continue to Chat')}
-						</button> -->
+						</a>
 					</div>
 				{/if}
 			</div>
