@@ -160,7 +160,7 @@
 		</div>
 	</div>
 	
-	<div class="fixed bg-transparent min-h-screen w-full flex justify-center font-primary z-50 text-black dark:text-white">
+	<div class="fixed inset-0 overflow-y-auto bg-transparent w-full flex justify-center font-primary z-50 text-black dark:text-white">
 		<div class="w-full sm:max-w-md px-10 min-h-screen flex flex-col text-center">
 			<div class="my-auto pb-10 w-full dark:text-gray-100">
 				{#if loading}
