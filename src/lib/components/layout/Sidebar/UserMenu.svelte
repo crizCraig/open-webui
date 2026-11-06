@@ -12,6 +12,7 @@
 	import { syncPolychatCookie } from '$lib/apis/polychat';
 	import { getPolychatAppUrl } from '$lib/constants';
 	import { navigateAfterCookieSync } from '$lib/utils/paymentNavigation';
+	import { MEMTREE_KEY_PATH } from '$lib/utils/memtreeKeyLink';
 
 	const i18n = getContext('i18n');
 
@@ -109,6 +110,34 @@
 			</button>
 
 			{#if $user}
+				<!-- The MemTree key page (where polychat.co/auth?memtree=true lands), for Claude Code -->
+				<a
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					href={MEMTREE_KEY_PATH}
+					data-testid="user-menu-memtree-key"
+					on:click={() => {
+						show = false;
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}}
+				>
+					<div class=" self-center mr-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="w-4 h-4"
+							aria-hidden="true"
+						>
+							<path
+								d="M10 2a1.5 1.5 0 0 0-1.5 1.5c0 .62.38 1.16.92 1.38v2.37L6.1 9.03a1.5 1.5 0 1 0 .7 1.33l3.2-1.71 3.2 1.71a1.5 1.5 0 1 0 .7-1.33l-3.32-1.78V4.88A1.5 1.5 0 0 0 10 2Zm-.58 9.6v3.52a1.5 1.5 0 1 0 1.16 0V11.6H9.42Z"
+							/>
+						</svg>
+					</div>
+					<div class=" self-center truncate">{$i18n.t('MemTree key')}</div>
+				</a>
+
 				<a
 					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 					href={`${getPolychatAppUrl()}/payment`}

@@ -8,6 +8,7 @@
 	import { WEBUI_NAME, config, user } from '$lib/stores';
 	import { copyToClipboard } from '$lib/utils';
 	import { keyPageTracker } from '$lib/utils/keyPageEvents';
+	import { markMemtreeKeyHintDone } from '$lib/utils/memtreeKeyLink';
 	
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	
@@ -36,6 +37,8 @@
 			// First check if API key already exists
 			let existingKey = await getAPIKey(localStorage.token).catch(() => '');
 			
+			// The user has found the key page: the new-chat hint has done its job.
+			markMemtreeKeyHintDone(localStorage);
 			if (existingKey) {
 				apiKey = existingKey;
 				track('key_shown');

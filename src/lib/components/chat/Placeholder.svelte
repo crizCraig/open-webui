@@ -15,6 +15,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import MessageInput from './MessageInput.svelte';
+	import MemTreeKeyHint from './MemTreeKeyHint.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -215,6 +216,9 @@
 						dispatch('submit', e.detail);
 					}}
 				/>
+				{#if !$temporaryChatEnabled}
+					<MemTreeKeyHint />
+				{/if}
 			</div>
 		</div>
 	</div>
