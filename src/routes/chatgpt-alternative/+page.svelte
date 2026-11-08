@@ -117,8 +117,8 @@
     <meta property="og:description" content="Looking for something similar to ChatGPT from OpenAI? Try the PolyChat ChatGPT Alternative! Access GPT-4.5, Claude 3.5, Gemini 2.5 Pro and more. Note that PolyChat has no affiliation with OpenAI. ChatGPT is a trademark of OpenAI." />
     <meta property="og:image" content="/static/polychat-genies2.webp" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@polychatco" />
-    <meta name="twitter:creator" content="@polychatco" />
+    <meta name="twitter:site" content="@memtreeai" />
+    <meta name="twitter:creator" content="@memtreeai" />
     <meta name="twitter:title" content="ChatGPT Alternative - PolyChat" />
     <meta name="twitter:description" content="Looking for something similar to ChatGPT from OpenAI? Try the PolyChat ChatGPT Alternative! Access GPT-4.5, Claude 3.5, Gemini 2.5 Pro and more. Note that PolyChat has no affiliation with OpenAI. ChatGPT is a trademark of OpenAI." />
     <meta name="twitter:image" content="/static/polychat-genies2.webp" />
